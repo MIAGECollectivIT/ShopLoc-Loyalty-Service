@@ -46,6 +46,11 @@ npm install
 
 ## 4. Workflow
 <!-- An explanation of the existing workflow (Quality, CI, CD), the API contracts (swagger and more), and potential procedures specifics to the infrastrure (data base migrations and more)  -->
+### 4.1 Semantic versionning
+An automatic versioning is present, and runs at every deployment, increasing the version through the following rules:
+- fix: → Patch Increment (ex: 1.0.1).
+- feat: → Minor Increment (ex: 1.1.0).
+- BREAKING CHANGE: (or feat!:) → Major Increment (ex: 2.0.0).
 
 ### 4.1 Quality pipeline 
 #### 4.1.1 (Husky) Pre commit
