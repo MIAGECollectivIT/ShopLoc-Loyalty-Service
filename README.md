@@ -5,12 +5,13 @@
 <!-- TOC -->
 - [0. Prerequisites](#0-prerequisites)
 - [1. Installation & Setup](#1-installation--setup)
-- [1.1. Husky](#11-husky)
+  - [1.1. Husky](#11-husky)
 - [2. Launch & Test](#2-launch--test)
-- [3. Workflow](#3-workflow)
-  - [3.1 Quality pipeline](#31-quality-pipeline)
-    - [3.1.1 (Husky) Pre commit](#311-husky-pre-commit)
-    - [3.1.2 GitHub Actions](#312-github-actions)
+- [3. Project structure](#3-project-structure)
+- [4. Workflow](#4-workflow)
+  - [4.1 Quality pipeline](#41-quality-pipeline)
+    - [4.1.1 (Husky) Pre commit](#411-husky-pre-commit)
+    - [4.1.2 GitHub Actions](#412-github-actions)
 <!-- /TOC -->
 
 ## 0. Prerequisites
@@ -31,17 +32,29 @@ npm install
 
 <!-- Total description of how to launch and test the project -->
 
-## 3. Workflow
+## 3. Project structure
+```
+├── .github/           # GitHub Actions and templates
+│   └── workflows/     # GitHub Actions
+├── src/  
+│   ├── xxx/   
+│   ├── xxx/        
+│   └── xxx/          
+├── .env.example        
+└── README.md
+```
+
+## 4. Workflow
 <!-- An explanation of the existing workflow (Quality, CI, CD), the API contracts (swagger and more), and potential procedures specifics to the infrastrure (data base migrations and more)  -->
 
-### 3.1 Quality pipeline 
-#### 3.1.1 (Husky) Pre commit
+### 4.1 Quality pipeline 
+#### 4.1.1 (Husky) Pre commit
 A pre-commit hook runs automatically on every commit to format and lint your code.
 If the pipeline rejects your commit, run manually:
 <!-- The terminal command to use linters -->
 
 
-#### 3.1.2 GitHub Actions 
+#### 4.1.2 GitHub Actions 
 <!-- All GitHub actions, what branches they work on, and how do they activates -->
 CI: Run on pull request on branches: 
 <!-- //TODO  -->
