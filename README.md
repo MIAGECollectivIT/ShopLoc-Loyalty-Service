@@ -9,9 +9,10 @@
 - [2. Launch & Test](#2-launch--test)
 - [3. Project structure](#3-project-structure)
 - [4. Workflow](#4-workflow)
-  - [4.1 Quality pipeline](#41-quality-pipeline)
-    - [4.1.1 (Husky) Pre commit](#411-husky-pre-commit)
-    - [4.1.2 GitHub Actions](#412-github-actions)
+  - [4.1 Semantic versionning](#41-semantic-versionning)
+  - [4.2 Quality pipeline](#42-quality-pipeline)
+    - [4.2.1 (Husky) Pre commit](#421-husky-pre-commit)
+    - [4.2.2 GitHub Actions](#422-github-actions)
 <!-- /TOC -->
 
 ## 0. Prerequisites
@@ -52,14 +53,14 @@ An automatic versioning is present, and runs at every deployment, increasing the
 - feat: → Minor Increment (ex: 1.1.0).
 - BREAKING CHANGE: (or feat!:) → Major Increment (ex: 2.0.0).
 
-### 4.1 Quality pipeline 
-#### 4.1.1 (Husky) Pre commit
+### 4.2 Quality pipeline 
+#### 4.2.1 (Husky) Pre commit
 A pre-commit hook runs automatically on every commit to format and lint your code.
 If the pipeline rejects your commit, run manually:
 <!-- The terminal command to use linters -->
 
 
-#### 4.1.2 GitHub Actions 
+#### 4.2.2 GitHub Actions 
 <!-- All GitHub actions, what branches they work on, and how do they activates -->
 CI: Run on pull request on branches: 
 <!-- //TODO  -->
