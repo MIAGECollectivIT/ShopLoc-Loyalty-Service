@@ -1,10 +1,10 @@
-package fr.miage.collectivit.storeservice;
+package fr.miage.collectivit.loyaltyservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class StoreServiceApplicationTests {
+class LoyaltyServiceApplicationTests {
 
   @Test
   void contextLoads() {}

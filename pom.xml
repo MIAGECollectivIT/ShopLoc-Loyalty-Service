@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>fr.miage.collectivit</groupId>
-	<artifactId>store-service</artifactId>
+	<artifactId>loyalty-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>store-service</name>
-	<description>Store Service for ShopLoc</description>
+	<name>loyalty-service</name>
+	<description>Loyalty Service for ShopLoc</description>
 	<url/>
 	<licenses>
 		<license/>
