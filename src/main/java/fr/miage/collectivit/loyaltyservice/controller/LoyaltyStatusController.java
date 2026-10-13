@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Controller exposing loyalty service status and health information with OpenAPI documentation. */
 @RestController
-@RequestMapping("/api/v1/loyalty")
+@RequestMapping("/v1/loyalty")
 @Tag(name = "Loyalty Status", description = "Operations related to loyalty service status")
 public class LoyaltyStatusController {
 
