@@ -2,6 +2,7 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.MerchantLoyaltyRateRequest;
+import fr.miage.collectivit.loyaltyservice.security.JwtValidatorService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.math.BigDecimal;
@@ -37,6 +39,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
       "dGhpc2lzYXZlcnlzZWNyZXRqd3R1c2Vyc3NlcnZpY2VrZXkxMjM0NTY=";
 
   @Autowired private WebApplicationContext webApplicationContext;
+  @Autowired private JwtValidatorService jwtValidatorService;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @MockitoBean private StoreVerificationPort storeVerificationPort;
@@ -51,10 +54,10 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     signingKey = Keys.hmacShaKeyFor(keyBytes);
   }
 
-  private String generateToken(String role, Long dbId) {
+  private String generateToken(String role, Long dbId, String jti) {
     long now = System.currentTimeMillis();
     return Jwts.builder()
-        .id(UUID.randomUUID().toString())
+        .id(jti != null ? jti : UUID.randomUUID().toString())
         .subject(UUID.randomUUID().toString())
         .issuer("shoploc-auth-service")
         .issuedAt(new Date(now))
@@ -65,6 +68,10 @@ class MerchantLoyaltyRateControllerIntegrationTest {
         .claim("role", role)
         .signWith(signingKey)
         .compact();
+  }
+
+  private String generateToken(String role, Long dbId) {
+    return generateToken(role, dbId, null);
   }
 
   @Test
@@ -80,6 +87,13 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
+  @DisplayName(
+      "OPTIONS /v1/loyalty/merchants/{storeId}/rates -> doit être autorisé pour pré-vol CORS")
+  void shouldAllowOptionsPreflightRequest() throws Exception {
+    mockMvc.perform(options("/v1/loyalty/merchants/10/rates")).andExpect(status().isOk());
+  }
+
+  @Test
   @DisplayName("PUT sans token -> doit renvoyer 401 Unauthorized")
   void shouldDenyPutWithoutToken() throws Exception {
     MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), 5);
@@ -87,6 +101,24 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     mockMvc
         .perform(
             put("/v1/loyalty/merchants/10/rates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("PUT avec token révoqué -> doit renvoyer 401 Unauthorized")
+  void shouldDenyPutWithRevokedToken() throws Exception {
+    String revokedJti = UUID.randomUUID().toString();
+    jwtValidatorService.addRevokedJtiForTest(revokedJti);
+
+    String token = generateToken("MERCHANT", 42L, revokedJti);
+    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), 5);
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/merchants/10/rates")
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -121,6 +153,41 @@ class MerchantLoyaltyRateControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("PUT avec montant ayant plus de 2 décimales -> doit renvoyer 400 Bad Request")
+  void shouldRejectEuroAmountWithMoreThanTwoDecimals() throws Exception {
+    String merchantToken = generateToken("MERCHANT", 42L);
+    String payload = "{\"euroAmount\": 2.345, \"pointsReward\": 5}";
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/merchants/10/rates")
+                .header("Authorization", "Bearer " + merchantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("PUT sur un commerce introuvable sur Store Service -> doit renvoyer 404 Not Found")
+  void shouldReturnNotFoundWhenStoreDoesNotExistOnStoreService() throws Exception {
+    Long unknownStoreId = 888L;
+    when(storeVerificationPort.storeExists(unknownStoreId)).thenReturn(false);
+
+    String token = generateToken("MERCHANT", 42L);
+    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.00"), 3);
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/merchants/" + unknownStoreId + "/rates")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isNotFound())
+        .andExpect(
+            jsonPath("$.message").value(org.hamcrest.Matchers.containsString("introuvable")));
   }
 
   @Test
