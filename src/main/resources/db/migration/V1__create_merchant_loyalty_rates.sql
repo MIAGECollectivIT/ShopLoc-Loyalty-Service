@@ -12,3 +12,4 @@ CREATE TABLE IF NOT EXISTS merchant_loyalty_rates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_merchant_loyalty_rates_store_id ON merchant_loyalty_rates (store_id);
+
