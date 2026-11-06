@@ -33,3 +33,5 @@ application:
 services:
   users:
     url: http://localhost:8089
+  store-service:
+    url: http://localhost:8089

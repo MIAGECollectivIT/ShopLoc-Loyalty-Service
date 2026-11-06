@@ -12,6 +12,9 @@ import java.util.Objects;
  */
 public class MerchantLoyaltyRate {
 
+  public static final BigDecimal DEFAULT_EURO_AMOUNT = new BigDecimal("1.00");
+  public static final Integer DEFAULT_POINTS_REWARD = 1;
+
   private Long id;
   private final Long storeId;
   private BigDecimal euroAmount;

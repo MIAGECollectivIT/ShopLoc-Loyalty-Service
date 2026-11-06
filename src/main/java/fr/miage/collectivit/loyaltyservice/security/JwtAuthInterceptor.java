@@ -5,11 +5,16 @@ import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthInterceptor implements HandlerInterceptor {
@@ -18,14 +23,17 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
   public static final String TOKEN_PREFIX = "Bearer ";
 
   public static final String ATTR_USER_ID = "authenticatedUserId";
+  public static final String ATTR_USER_DB_ID = "authenticatedUserDbId";
   public static final String ATTR_USER_EMAIL = "authenticatedUserEmail";
   public static final String ATTR_USER_ROLE = "authenticatedUserRole";
   public static final String ATTR_CLAIMS = "jwtClaims";
+  public static final String ATTR_RAW_TOKEN = "rawJwtToken";
 
   private static final String METHOD_OPTIONS = "OPTIONS";
   private static final Set<String> PUBLIC_EXACT_PATHS = Set.of("/swagger-ui.html", "/error");
   private static final String DOCS_PREFIX = "/v3/api-docs";
   private static final String SWAGGER_PREFIX = "/swagger-ui";
+  private static final String ACTUATOR_PREFIX = "/actuator";
 
   private final JwtValidatorService jwtValidatorService;
 
@@ -41,40 +49,128 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
       return true;
     }
 
+    RequiresRole requiresRole = extractRequiresRole(handler);
+    Optional<String> tokenOpt = extractBearerToken(request);
+
+    if (tokenOpt.isEmpty()) {
+      return handleMissingToken(requiresRole, response);
+    }
+
+    String token = tokenOpt.get();
+    Claims claims;
+    try {
+      claims = jwtValidatorService.validateAndExtractClaims(token);
+    } catch (JwtException | IllegalArgumentException | SecurityException ex) {
+      return handleInvalidToken(requiresRole, response, path, ex);
+    }
+
+    String userRole = jwtValidatorService.extractRole(claims);
+    populateRequestAttributes(request, claims, userRole, token);
+
+    return checkRoleAuthorization(requiresRole, userRole, response);
+  }
+
+  private RequiresRole extractRequiresRole(Object handler) {
+    if (handler instanceof HandlerMethod handlerMethod) {
+      RequiresRole methodAnnotation = handlerMethod.getMethodAnnotation(RequiresRole.class);
+      if (methodAnnotation != null) {
+        return methodAnnotation;
+      }
+      return handlerMethod.getBeanType().getAnnotation(RequiresRole.class);
+    }
+    return null;
+  }
+
+  private Optional<String> extractBearerToken(HttpServletRequest request) {
     String authHeader = request.getHeader(AUTH_HEADER);
     if (authHeader == null
         || !authHeader.regionMatches(true, 0, TOKEN_PREFIX, 0, TOKEN_PREFIX.length())) {
+      return Optional.empty();
+    }
+    String token = authHeader.substring(TOKEN_PREFIX.length()).trim();
+    return token.isEmpty() ? Optional.empty() : Optional.of(token);
+  }
+
+  private boolean handleMissingToken(RequiresRole requiresRole, HttpServletResponse response)
+      throws IOException {
+    if (requiresRole != null) {
       response.sendError(
           HttpServletResponse.SC_UNAUTHORIZED,
           "En-tête d'autorisation manquant ou invalide. Un jeton Bearer JWT est requis.");
       return false;
     }
+    return true;
+  }
 
-    String token = authHeader.substring(TOKEN_PREFIX.length()).trim();
-    if (token.isEmpty()) {
-      response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Jeton JWT vide ou manquant.");
-      return false;
-    }
-
-    try {
-      Claims claims = jwtValidatorService.validateAndExtractClaims(token);
-      request.setAttribute(ATTR_USER_ID, claims.get("userId", String.class));
-      request.setAttribute(ATTR_USER_EMAIL, claims.get("email", String.class));
-      request.setAttribute(ATTR_USER_ROLE, jwtValidatorService.extractRole(claims));
-      request.setAttribute(ATTR_CLAIMS, claims);
-      return true;
-    } catch (JwtException | IllegalArgumentException | SecurityException ex) {
+  private boolean handleInvalidToken(
+      RequiresRole requiresRole, HttpServletResponse response, String path, Exception ex)
+      throws IOException {
+    if (requiresRole != null) {
       response.sendError(
           HttpServletResponse.SC_UNAUTHORIZED,
           "Jeton d'authentification invalide ou expiré : " + ex.getMessage());
       return false;
     }
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Jeton invalide sur endpoint public {}. Accès anonyme autorisé : {}",
+          path,
+          ex.getMessage());
+    }
+    return true;
+  }
+
+  private void populateRequestAttributes(
+      HttpServletRequest request, Claims claims, String userRole, String token) {
+    request.setAttribute(ATTR_USER_ID, claims.get("userId", String.class));
+    Object dbIdObj = claims.get("dbId");
+    if (dbIdObj instanceof Number num) {
+      request.setAttribute(ATTR_USER_DB_ID, num.longValue());
+    } else if (dbIdObj != null) {
+      parseAndSetDbId(request, dbIdObj.toString());
+    }
+    request.setAttribute(ATTR_USER_EMAIL, claims.get("email", String.class));
+    request.setAttribute(ATTR_USER_ROLE, userRole);
+    request.setAttribute(ATTR_CLAIMS, claims);
+    request.setAttribute(ATTR_RAW_TOKEN, token);
+  }
+
+  private void parseAndSetDbId(HttpServletRequest request, String dbIdStr) {
+    try {
+      request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(dbIdStr));
+    } catch (NumberFormatException ignored) {
+      // Ignoré si le format ne correspond pas
+    }
+  }
+
+  private boolean checkRoleAuthorization(
+      RequiresRole requiresRole, String userRole, HttpServletResponse response) throws IOException {
+    if (requiresRole == null) {
+      return true;
+    }
+    String[] allowedRoles = requiresRole.value();
+    if (allowedRoles == null || allowedRoles.length == 0) {
+      return true;
+    }
+    for (String allowed : allowedRoles) {
+      if (allowed != null && allowed.trim().equalsIgnoreCase(userRole)) {
+        return true;
+      }
+    }
+    response.sendError(
+        HttpServletResponse.SC_FORBIDDEN,
+        "Accès refusé : un des rôles "
+            + Arrays.toString(allowedRoles)
+            + " est requis pour effectuer cette action.");
+    return false;
   }
 
   private boolean isWhitelisted(String path) {
     if (PUBLIC_EXACT_PATHS.contains(path)) {
       return true;
     }
-    return path.startsWith(DOCS_PREFIX) || path.startsWith(SWAGGER_PREFIX);
+    return path.startsWith(DOCS_PREFIX)
+        || path.startsWith(SWAGGER_PREFIX)
+        || path.startsWith(ACTUATOR_PREFIX);
   }
 }

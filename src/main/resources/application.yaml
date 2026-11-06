@@ -74,3 +74,5 @@ application:
 services:
   users:
     url: ${USERS_SERVICE_URL:http://users-service:8080}
+  store-service:
+    url: ${STORE_SERVICE_URL:http://store-service:8080}
