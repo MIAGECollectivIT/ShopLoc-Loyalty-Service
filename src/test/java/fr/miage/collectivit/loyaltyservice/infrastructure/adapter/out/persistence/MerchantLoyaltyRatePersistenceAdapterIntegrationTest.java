@@ -23,7 +23,8 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   @Test
   @DisplayName("Devrait sauvegarder et retrouver le barème de fidélité via l'adaptateur")
   void shouldSaveAndFindByStoreIdViaAdapter() {
-    MerchantLoyaltyRate rate = new MerchantLoyaltyRate(10L, new BigDecimal("2.50"), 5);
+    MerchantLoyaltyRate rate =
+        new MerchantLoyaltyRate(10L, new BigDecimal("2.50"), new BigDecimal("5.0"));
 
     MerchantLoyaltyRate saved = persistenceAdapter.save(rate);
 
@@ -35,16 +36,18 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
     assertThat(found).isPresent();
     assertThat(found.get().getStoreId()).isEqualTo(10L);
     assertThat(found.get().getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.50"));
-    assertThat(found.get().getPointsReward()).isEqualTo(5);
+    assertThat(found.get().getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
   }
 
   @Test
   @DisplayName("Devrait refuser deux barèmes pour un même storeId (contrainte d'unicité en base)")
   void shouldRejectDuplicateStoreIdViaAdapter() {
-    MerchantLoyaltyRate rate1 = new MerchantLoyaltyRate(42L, new BigDecimal("1.00"), 1);
+    MerchantLoyaltyRate rate1 =
+        new MerchantLoyaltyRate(42L, new BigDecimal("1.00"), new BigDecimal("1.0"));
     persistenceAdapter.save(rate1);
 
-    MerchantLoyaltyRate rate2 = new MerchantLoyaltyRate(42L, new BigDecimal("5.00"), 10);
+    MerchantLoyaltyRate rate2 =
+        new MerchantLoyaltyRate(42L, new BigDecimal("5.00"), new BigDecimal("10.0"));
 
     assertThatThrownBy(() -> persistenceAdapter.save(rate2))
         .isInstanceOf(DataIntegrityViolationException.class);
@@ -55,7 +58,8 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   void shouldCheckExistenceByStoreIdViaAdapter() {
     assertThat(persistenceAdapter.existsByStoreId(99L)).isFalse();
 
-    MerchantLoyaltyRate rate = new MerchantLoyaltyRate(99L, new BigDecimal("3.00"), 2);
+    MerchantLoyaltyRate rate =
+        new MerchantLoyaltyRate(99L, new BigDecimal("3.00"), new BigDecimal("2.0"));
     persistenceAdapter.save(rate);
 
     assertThat(persistenceAdapter.existsByStoreId(99L)).isTrue();
@@ -64,7 +68,8 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   @Test
   @DisplayName("Devrait supprimer le barème par storeId via l'adaptateur")
   void shouldDeleteByStoreIdViaAdapter() {
-    MerchantLoyaltyRate rate = new MerchantLoyaltyRate(100L, new BigDecimal("1.00"), 1);
+    MerchantLoyaltyRate rate =
+        new MerchantLoyaltyRate(100L, new BigDecimal("1.00"), new BigDecimal("1.0"));
     persistenceAdapter.save(rate);
 
     persistenceAdapter.deleteByStoreId(100L);

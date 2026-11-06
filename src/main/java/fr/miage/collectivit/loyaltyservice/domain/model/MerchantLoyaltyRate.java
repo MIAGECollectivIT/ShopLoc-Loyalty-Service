@@ -8,21 +8,22 @@ import java.util.Objects;
 
 /**
  * Objet métier pur (Domain Model) représentant le barème de fidélité d'un commerce (Story SLE-55 /
- * SLE-145). Totalement découplé de la persistance JPA et des frameworks d'infrastructure.
+ * SLE-145). Supporte les demi-points (pas de 0.5 point).
  */
 public class MerchantLoyaltyRate {
 
   public static final BigDecimal DEFAULT_EURO_AMOUNT = new BigDecimal("1.00");
-  public static final Integer DEFAULT_POINTS_REWARD = 1;
+  public static final BigDecimal DEFAULT_POINTS_REWARD = new BigDecimal("1.0");
+  public static final BigDecimal MIN_POINTS_STEP = new BigDecimal("0.5");
 
   private Long id;
   private final Long storeId;
   private BigDecimal euroAmount;
-  private Integer pointsReward;
+  private BigDecimal pointsReward;
   private Instant createdAt;
   private Instant updatedAt;
 
-  public MerchantLoyaltyRate(Long storeId, BigDecimal euroAmount, Integer pointsReward) {
+  public MerchantLoyaltyRate(Long storeId, BigDecimal euroAmount, BigDecimal pointsReward) {
     this(null, storeId, euroAmount, pointsReward, Instant.now(), Instant.now());
   }
 
@@ -30,7 +31,7 @@ public class MerchantLoyaltyRate {
       Long id,
       Long storeId,
       BigDecimal euroAmount,
-      Integer pointsReward,
+      BigDecimal pointsReward,
       Instant createdAt,
       Instant updatedAt) {
     this.storeId = Objects.requireNonNull(storeId, "L'identifiant du commerce est obligatoire.");
@@ -40,38 +41,53 @@ public class MerchantLoyaltyRate {
     this.updatedAt = updatedAt != null ? updatedAt : Instant.now();
   }
 
+  public static MerchantLoyaltyRate defaultForStore(Long storeId) {
+    return new MerchantLoyaltyRate(storeId, DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD);
+  }
+
   /**
    * Valide les critères d'acceptation du barème : - Montant minimal en euro strictement positif (>
-   * 0). - Nombre de points obligatoirement entier positif (>= 1).
+   * 0). - Nombre de points >= 0.5 et par pas de 0.5 (demi-points).
    */
-  public void updateRates(BigDecimal newEuroAmount, Integer newPointsReward) {
+  public void updateRates(BigDecimal newEuroAmount, BigDecimal newPointsReward) {
     validateAndSetRates(newEuroAmount, newPointsReward);
     this.updatedAt = Instant.now();
   }
 
-  private void validateAndSetRates(BigDecimal amount, Integer points) {
+  private void validateAndSetRates(BigDecimal amount, BigDecimal points) {
     if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
       throw new InvalidLoyaltyRateException(
           "Le montant d'achat minimal en euro doit être strictement positif.");
     }
-    if (points == null || points <= 0) {
+    if (points == null || points.compareTo(MIN_POINTS_STEP) < 0) {
       throw new InvalidLoyaltyRateException(
-          "Le nombre de points attribués doit être un entier strictement positif.");
+          "Le nombre de points attribués doit être supérieur ou égal à 0.5.");
     }
+
+    // Vérifier que le nombre de points est un multiple de 0.5 (ex: 0.5, 1.0, 1.5, 2.0...)
+    BigDecimal doubled = points.multiply(BigDecimal.valueOf(2));
+    if (doubled.stripTrailingZeros().scale() > 0) {
+      throw new InvalidLoyaltyRateException(
+          "Le nombre de points attribués doit être un multiple de 0.5 (ex: 0.5, 1, 1.5, 2).");
+    }
+
     this.euroAmount = amount.setScale(2, RoundingMode.HALF_UP);
-    this.pointsReward = points;
+    this.pointsReward = points.setScale(1, RoundingMode.HALF_UP);
   }
 
   /**
-   * Règle métier centrale : calcule les points accordés pour un montant d'achat donné. Si l'achat
-   * est strictement inférieur au plancher (euroAmount), 0 point est crédité.
+   * Règle métier centrale : calcule les points accordés pour un montant d'achat donné. Calcul au
+   * demi-point près (pas de 0.5 pt). Ex: pour 2.00 € = 1 pt, un achat de 25 € donne 12.5 points.
    */
-  public int calculatePointsForPurchase(BigDecimal purchaseAmount) {
-    if (purchaseAmount == null || purchaseAmount.compareTo(this.euroAmount) < 0) {
-      return 0;
+  public BigDecimal calculatePointsForPurchase(BigDecimal purchaseAmount) {
+    if (purchaseAmount == null || purchaseAmount.compareTo(BigDecimal.ZERO) <= 0) {
+      return BigDecimal.ZERO.setScale(1, RoundingMode.UNNECESSARY);
     }
-    BigDecimal multiples = purchaseAmount.divideToIntegralValue(this.euroAmount);
-    return multiples.intValueExact() * this.pointsReward;
+    BigDecimal rawPoints =
+        purchaseAmount.multiply(this.pointsReward).divide(this.euroAmount, 4, RoundingMode.HALF_UP);
+    BigDecimal halfSteps =
+        rawPoints.multiply(BigDecimal.valueOf(2)).setScale(0, RoundingMode.FLOOR);
+    return halfSteps.divide(BigDecimal.valueOf(2), 1, RoundingMode.UNNECESSARY);
   }
 
   public Long getId() {
@@ -90,7 +106,7 @@ public class MerchantLoyaltyRate {
     return euroAmount;
   }
 
-  public Integer getPointsReward() {
+  public BigDecimal getPointsReward() {
     return pointsReward;
   }
 

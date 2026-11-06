@@ -26,20 +26,20 @@ class MerchantLoyaltyRateMapperTest {
   void shouldMapBidirectionally() {
     Instant now = Instant.now();
     MerchantLoyaltyRate domain =
-        new MerchantLoyaltyRate(1L, 10L, new BigDecimal("2.50"), 5, now, now);
+        new MerchantLoyaltyRate(1L, 10L, new BigDecimal("2.50"), new BigDecimal("5.5"), now, now);
 
     MerchantLoyaltyRateJpaEntity entity = mapper.toJpaEntity(domain);
     assertThat(entity).isNotNull();
     assertThat(entity.getId()).isEqualTo(1L);
     assertThat(entity.getStoreId()).isEqualTo(10L);
     assertThat(entity.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.50"));
-    assertThat(entity.getPointsReward()).isEqualTo(5);
+    assertThat(entity.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.5"));
 
     MerchantLoyaltyRate mappedBack = mapper.toDomain(entity);
     assertThat(mappedBack).isNotNull();
     assertThat(mappedBack.getId()).isEqualTo(1L);
     assertThat(mappedBack.getStoreId()).isEqualTo(10L);
     assertThat(mappedBack.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.50"));
-    assertThat(mappedBack.getPointsReward()).isEqualTo(5);
+    assertThat(mappedBack.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.5"));
   }
 }

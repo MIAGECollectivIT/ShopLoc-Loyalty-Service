@@ -32,7 +32,7 @@ public class PointsAccountService
   public MerchantLoyaltyRate configureRate(
       Long storeId,
       BigDecimal euroAmount,
-      Integer pointsReward,
+      BigDecimal pointsReward,
       Long callerUserId,
       String callerRole) {
     validateStoreOwnership(storeId, callerUserId, callerRole);

@@ -39,11 +39,11 @@ class PointsAccountServiceTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MerchantLoyaltyRate result =
-        service.configureRate(10L, new BigDecimal("2.00"), 5, 99L, "ADMIN");
+        service.configureRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"), 99L, "ADMIN");
 
     assertThat(result.getStoreId()).isEqualTo(10L);
     assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.00"));
-    assertThat(result.getPointsReward()).isEqualTo(5);
+    assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
     verify(persistencePort).save(any(MerchantLoyaltyRate.class));
     verify(storeVerificationPort, never()).storeExists(any());
   }
@@ -54,17 +54,18 @@ class PointsAccountServiceTest {
     when(storeVerificationPort.storeExists(10L)).thenReturn(true);
     when(storeVerificationPort.isStoreOwnedBy(10L, 42L)).thenReturn(true);
 
-    MerchantLoyaltyRate existing = new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), 1);
+    MerchantLoyaltyRate existing =
+        new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"));
     when(persistencePort.findByStoreId(10L)).thenReturn(Optional.of(existing));
     when(persistencePort.save(any(MerchantLoyaltyRate.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MerchantLoyaltyRate result =
-        service.configureRate(10L, new BigDecimal("3.00"), 4, 42L, "MERCHANT");
+        service.configureRate(10L, new BigDecimal("3.00"), new BigDecimal("4.5"), 42L, "MERCHANT");
 
     assertThat(result.getStoreId()).isEqualTo(10L);
     assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("3.00"));
-    assertThat(result.getPointsReward()).isEqualTo(4);
+    assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("4.5"));
     verify(persistencePort).save(existing);
   }
 
@@ -75,7 +76,9 @@ class PointsAccountServiceTest {
     when(storeVerificationPort.storeExists(999L)).thenReturn(false);
 
     assertThatThrownBy(
-            () -> service.configureRate(999L, new BigDecimal("2.00"), 2, 42L, "MERCHANT"))
+            () ->
+                service.configureRate(
+                    999L, new BigDecimal("2.00"), new BigDecimal("2.0"), 42L, "MERCHANT"))
         .isInstanceOf(StoreNotFoundException.class)
         .hasMessageContaining("999");
 
@@ -89,7 +92,10 @@ class PointsAccountServiceTest {
     when(storeVerificationPort.storeExists(10L)).thenReturn(true);
     when(storeVerificationPort.isStoreOwnedBy(10L, 99L)).thenReturn(false);
 
-    assertThatThrownBy(() -> service.configureRate(10L, new BigDecimal("2.00"), 2, 99L, "MERCHANT"))
+    assertThatThrownBy(
+            () ->
+                service.configureRate(
+                    10L, new BigDecimal("2.00"), new BigDecimal("2.0"), 99L, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
         .hasMessageContaining("propriétaire");
 
@@ -100,7 +106,9 @@ class PointsAccountServiceTest {
   @DisplayName("Devrait refuser la modification si l'identifiant commerçant est nul")
   void shouldThrowWhenMerchantUserIdIsNull() {
     assertThatThrownBy(
-            () -> service.configureRate(10L, new BigDecimal("2.00"), 2, (Long) null, "MERCHANT"))
+            () ->
+                service.configureRate(
+                    10L, new BigDecimal("2.00"), new BigDecimal("2.0"), (Long) null, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
         .hasMessageContaining("manquant");
 
@@ -110,7 +118,8 @@ class PointsAccountServiceTest {
   @Test
   @DisplayName("Devrait récupérer un barème existant par storeId")
   void shouldReturnExistingRate() {
-    MerchantLoyaltyRate existing = new MerchantLoyaltyRate(20L, new BigDecimal("1.00"), 2);
+    MerchantLoyaltyRate existing =
+        new MerchantLoyaltyRate(20L, new BigDecimal("1.00"), new BigDecimal("2.0"));
     when(persistencePort.findByStoreId(20L)).thenReturn(Optional.of(existing));
 
     MerchantLoyaltyRate result = service.getRateByStoreId(20L);

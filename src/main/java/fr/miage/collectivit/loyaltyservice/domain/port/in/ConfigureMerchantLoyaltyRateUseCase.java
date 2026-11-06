@@ -21,7 +21,7 @@ public interface ConfigureMerchantLoyaltyRateUseCase {
   MerchantLoyaltyRate configureRate(
       Long storeId,
       BigDecimal euroAmount,
-      Integer pointsReward,
+      BigDecimal pointsReward,
       Long callerUserId,
       String callerRole);
 
@@ -30,7 +30,7 @@ public interface ConfigureMerchantLoyaltyRateUseCase {
    * système/admin).
    */
   default MerchantLoyaltyRate configureRate(
-      Long storeId, BigDecimal euroAmount, Integer pointsReward) {
+      Long storeId, BigDecimal euroAmount, BigDecimal pointsReward) {
     return configureRate(storeId, euroAmount, pointsReward, null, "ADMIN");
   }
 }
