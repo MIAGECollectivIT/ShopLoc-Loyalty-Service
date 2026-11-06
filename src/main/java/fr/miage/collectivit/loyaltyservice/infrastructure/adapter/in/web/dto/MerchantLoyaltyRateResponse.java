@@ -9,7 +9,7 @@ public record MerchantLoyaltyRateResponse(
     Long id,
     Long storeId,
     BigDecimal euroAmount,
-    Integer pointsReward,
+    BigDecimal pointsReward,
     Instant createdAt,
     Instant updatedAt) {
 

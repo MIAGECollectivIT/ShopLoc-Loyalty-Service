@@ -38,8 +38,8 @@ public class MerchantLoyaltyRateJpaEntity {
   @Column(name = "euro_amount", nullable = false, precision = 10, scale = 2)
   private BigDecimal euroAmount;
 
-  @Column(name = "points_reward", nullable = false)
-  private Integer pointsReward;
+  @Column(name = "points_reward", nullable = false, precision = 10, scale = 1)
+  private BigDecimal pointsReward;
 
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;

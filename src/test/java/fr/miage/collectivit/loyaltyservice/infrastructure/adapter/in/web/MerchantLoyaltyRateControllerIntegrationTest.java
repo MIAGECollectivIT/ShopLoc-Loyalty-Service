@@ -83,7 +83,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.storeId").value(100))
         .andExpect(jsonPath("$.euroAmount").value(1.00))
-        .andExpect(jsonPath("$.pointsReward").value(1));
+        .andExpect(jsonPath("$.pointsReward").value(1.0));
   }
 
   @Test
@@ -96,7 +96,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   @Test
   @DisplayName("PUT sans token -> doit renvoyer 401 Unauthorized")
   void shouldDenyPutWithoutToken() throws Exception {
-    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), 5);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), new BigDecimal("5.0"));
 
     mockMvc
         .perform(
@@ -113,7 +114,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     jwtValidatorService.addRevokedJtiForTest(revokedJti);
 
     String token = generateToken("MERCHANT", 42L, revokedJti);
-    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), 5);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), new BigDecimal("5.0"));
 
     mockMvc
         .perform(
@@ -128,7 +130,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   @DisplayName("PUT avec rôle CLIENT -> doit renvoyer 403 Forbidden")
   void shouldDenyPutWithClientRole() throws Exception {
     String clientToken = generateToken("CLIENT", 1L);
-    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), 5);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), new BigDecimal("5.0"));
 
     mockMvc
         .perform(
@@ -144,7 +147,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   void shouldReturnBadRequestForInvalidPayload() throws Exception {
     String merchantToken = generateToken("MERCHANT", 42L);
     MerchantLoyaltyRateRequest invalidRequest =
-        new MerchantLoyaltyRateRequest(new BigDecimal("0.00"), 0);
+        new MerchantLoyaltyRateRequest(new BigDecimal("0.00"), new BigDecimal("0.0"));
 
     mockMvc
         .perform(
@@ -177,7 +180,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     when(storeVerificationPort.storeExists(unknownStoreId)).thenReturn(false);
 
     String token = generateToken("MERCHANT", 42L);
-    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.00"), 3);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("2.00"), new BigDecimal("3.0"));
 
     mockMvc
         .perform(
@@ -200,7 +204,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     when(storeVerificationPort.isStoreOwnedBy(storeId, otherMerchantId)).thenReturn(false);
 
     String token = generateToken("MERCHANT", otherMerchantId);
-    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("2.00"), 3);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("2.00"), new BigDecimal("3.0"));
 
     mockMvc
         .perform(
@@ -222,7 +227,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     when(storeVerificationPort.isStoreOwnedBy(storeId, ownerId)).thenReturn(true);
 
     String token = generateToken("MERCHANT", ownerId);
-    MerchantLoyaltyRateRequest request = new MerchantLoyaltyRateRequest(new BigDecimal("5.00"), 10);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("5.00"), new BigDecimal("10.0"));
 
     mockMvc
         .perform(
@@ -233,14 +239,58 @@ class MerchantLoyaltyRateControllerIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.storeId").value(storeId))
         .andExpect(jsonPath("$.euroAmount").value(5.00))
-        .andExpect(jsonPath("$.pointsReward").value(10));
+        .andExpect(jsonPath("$.pointsReward").value(10.0));
 
     // Vérifier que le GET public retourne ensuite la nouvelle configuration
     mockMvc
         .perform(get("/v1/loyalty/merchants/" + storeId + "/rates"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.euroAmount").value(5.00))
-        .andExpect(jsonPath("$.pointsReward").value(10));
+        .andExpect(jsonPath("$.pointsReward").value(10.0));
+  }
+
+  @Test
+  @DisplayName("PUT avec demi-points (ex: 0.5 point) -> doit réussir et être conservé")
+  void shouldAllowConfiguringHalfPointReward() throws Exception {
+    Long storeId = 26L;
+    Long ownerId = 42L;
+    when(storeVerificationPort.storeExists(storeId)).thenReturn(true);
+    when(storeVerificationPort.isStoreOwnedBy(storeId, ownerId)).thenReturn(true);
+
+    String token = generateToken("MERCHANT", ownerId);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("2.00"), new BigDecimal("0.5"));
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/merchants/" + storeId + "/rates")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.storeId").value(storeId))
+        .andExpect(jsonPath("$.euroAmount").value(2.00))
+        .andExpect(jsonPath("$.pointsReward").value(0.5));
+  }
+
+  @Test
+  @DisplayName("PUT avec points non multiple de 0.5 (ex: 0.7 pt) -> doit renvoyer 400 Bad Request")
+  void shouldRejectPointsNotMultipleOfHalf() throws Exception {
+    Long storeId = 27L;
+    Long ownerId = 42L;
+    when(storeVerificationPort.storeExists(storeId)).thenReturn(true);
+    when(storeVerificationPort.isStoreOwnedBy(storeId, ownerId)).thenReturn(true);
+
+    String token = generateToken("MERCHANT", ownerId);
+    String payload = "{\"euroAmount\": 2.00, \"pointsReward\": 0.7}";
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/merchants/" + storeId + "/rates")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+        .andExpect(status().isBadRequest());
   }
 
   @Test
@@ -249,7 +299,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
     Long storeId = 30L;
     String adminToken = generateToken("ADMIN", 1L);
     MerchantLoyaltyRateRequest request =
-        new MerchantLoyaltyRateRequest(new BigDecimal("10.00"), 20);
+        new MerchantLoyaltyRateRequest(new BigDecimal("10.00"), new BigDecimal("20.0"));
 
     mockMvc
         .perform(
@@ -260,6 +310,6 @@ class MerchantLoyaltyRateControllerIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.storeId").value(storeId))
         .andExpect(jsonPath("$.euroAmount").value(10.00))
-        .andExpect(jsonPath("$.pointsReward").value(20));
+        .andExpect(jsonPath("$.pointsReward").value(20.0));
   }
 }
