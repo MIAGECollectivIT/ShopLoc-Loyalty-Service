@@ -100,7 +100,7 @@ class PointsAccountServiceTest {
   @DisplayName("Devrait refuser la modification si l'identifiant commerçant est nul")
   void shouldThrowWhenMerchantUserIdIsNull() {
     assertThatThrownBy(
-            () -> service.configureRate(10L, new BigDecimal("2.00"), 2, null, "MERCHANT"))
+            () -> service.configureRate(10L, new BigDecimal("2.00"), 2, (Long) null, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
         .hasMessageContaining("manquant");
 
