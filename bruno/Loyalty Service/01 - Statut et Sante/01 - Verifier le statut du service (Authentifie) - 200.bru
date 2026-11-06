@@ -1,0 +1,22 @@
+meta {
+  name: 01 - Verifier le statut du service (Authentifie) - 200
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/status
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.service: eq loyalty-service
+  res.body.status: eq UP
+}
+

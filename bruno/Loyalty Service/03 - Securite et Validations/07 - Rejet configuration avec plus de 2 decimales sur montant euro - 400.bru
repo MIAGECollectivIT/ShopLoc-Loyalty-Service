@@ -1,0 +1,31 @@
+meta {
+  name: 07 - Rejet configuration avec plus de 2 decimales sur montant euro - 400
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 2.555,
+    "pointsReward": 5
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+

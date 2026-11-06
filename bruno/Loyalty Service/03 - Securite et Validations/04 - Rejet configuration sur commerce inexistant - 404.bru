@@ -1,0 +1,32 @@
+meta {
+  name: 04 - Rejet configuration sur commerce inexistant - 404
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/888888/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 2.00,
+    "pointsReward": 2
+  }
+}
+
+assert {
+  res.status: eq 404
+  res.body.message: isDefined
+}
+

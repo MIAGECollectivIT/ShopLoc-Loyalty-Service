@@ -1,0 +1,16 @@
+meta {
+  name: 03 - Rejet verification statut sans token - 401
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/status
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+}
+
