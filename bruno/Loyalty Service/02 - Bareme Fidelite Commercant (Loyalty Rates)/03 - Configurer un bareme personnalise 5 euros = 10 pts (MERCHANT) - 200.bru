@@ -1,0 +1,34 @@
+meta {
+  name: 03 - Configurer un bareme personnalise 5 euros = 10 pts (MERCHANT) - 200
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 5.00,
+    "pointsReward": 10
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.storeId: eq {{storeId}}
+  res.body.euroAmount: eq 5.00
+  res.body.pointsReward: eq 10
+}
+

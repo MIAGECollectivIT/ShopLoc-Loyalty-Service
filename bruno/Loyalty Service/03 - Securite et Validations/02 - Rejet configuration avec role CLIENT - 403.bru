@@ -1,0 +1,31 @@
+meta {
+  name: 02 - Rejet configuration avec role CLIENT - 403
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 2.00,
+    "pointsReward": 2
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+

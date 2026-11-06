@@ -142,7 +142,16 @@ application:
 ```
 
 ## 5. Project structure
+
+> 📘 Pour une description détaillée et des diagrammes de séquence du fonctionnement interne, consultez le document d'architecture : [**docs/architecture-hexagonale.md**](docs/architecture-hexagonale.md).
+
+Le projet adopte une **Architecture Hexagonale (Ports & Adaptateurs)** stricte :
+
 ```
+├── docs/                        # Spécifications et architecture hexagonale détaillée
+│   └── architecture-hexagonale.md
+├── bruno/                       # Collections de requêtes et tests d'API Bruno
+│   └── Loyalty Service/
 ├── .dockerignore                # Docker build context exclusions
 ├── .github/                     # GitHub Actions workflows (CI & CD)
 │   └── workflows/
@@ -155,19 +164,16 @@ application:
 │   ├── main/
 │   │   ├── java/                # Java Spring Boot source code
 │   │   │   └── fr/miage/collectivit/loyaltyservice/
-│   │   │       ├── config/
-│   │   │       │   └── OpenApiConfig.java          # Swagger & OpenAPI authentication setup
-│   │   │       ├── controller/
-│   │   │       │   └── LoyaltyStatusController.java # Sample endpoint with OpenAPI annotations
-│   │   │       └── LoyaltyServiceApplication.java   # Application entrypoint
+│   │   │       ├── domain/      # Cœur métier pur (Model, Ports In/Out, Exceptions)
+│   │   │       ├── application/ # Orchestration applicative (PointsAccountService)
+│   │   │       ├── infrastructure/ # Adaptateurs Inbound (Web REST) et Outbound (JPA, HTTP)
+│   │   │       ├── security/    # Contrôle d'accès RBAC (@RequiresRole, JWT Interceptor)
+│   │   │       ├── config/      # Configuration OpenAPI / Swagger
+│   │   │       └── LoyaltyServiceApplication.java   # Point d'entrée Spring Boot
 │   │   └── resources/
-│   │       └── application.yaml                    # Application, OpenAPI & security configuration
-│   └── test/
-│       └── java/                # Unit & integration tests
-│           └── fr/miage/collectivit/loyaltyservice/
-│               ├── controller/
-│               │   └── LoyaltyStatusControllerTest.java
-│               └── LoyaltyServiceApplicationTests.java
+│   │       ├── application.yaml # Configuration applicative et endpoints inter-services
+│   │       └── db/migration/    # Scripts de migration Flyway PostgreSQL
+│   └── test/                    # Tests unitaires, d'intégration et sécurité (51 tests)
 ├── docker-compose.yml           # Local multi-container development orchestration
 ├── Dockerfile                   # Multi-stage container image definition
 ├── mvnw                         # Maven Wrapper script (Linux / macOS)

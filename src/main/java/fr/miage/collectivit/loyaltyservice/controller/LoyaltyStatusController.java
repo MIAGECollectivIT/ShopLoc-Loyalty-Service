@@ -1,6 +1,7 @@
 package fr.miage.collectivit.loyaltyservice.controller;
 
 import fr.miage.collectivit.loyaltyservice.config.OpenApiConfig;
+import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/v1/loyalty")
 @Tag(name = "Loyalty Status", description = "Operations related to loyalty service status")
+@RequiresRole({"CLIENT", "MERCHANT", "ADMIN"})
 public class LoyaltyStatusController {
 
   @GetMapping("/status")

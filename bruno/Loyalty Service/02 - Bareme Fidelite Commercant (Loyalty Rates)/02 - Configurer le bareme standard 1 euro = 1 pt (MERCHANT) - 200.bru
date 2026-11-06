@@ -1,0 +1,34 @@
+meta {
+  name: 02 - Configurer le bareme standard 1 euro = 1 pt (MERCHANT) - 200
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 1.00,
+    "pointsReward": 1
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.storeId: eq {{storeId}}
+  res.body.euroAmount: eq 1.00
+  res.body.pointsReward: eq 1
+}
+

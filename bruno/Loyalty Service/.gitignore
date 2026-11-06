@@ -1,0 +1,4 @@
+# Ignore locally stored test tokens or environment secrets
+*.local.bru
+.env
+
