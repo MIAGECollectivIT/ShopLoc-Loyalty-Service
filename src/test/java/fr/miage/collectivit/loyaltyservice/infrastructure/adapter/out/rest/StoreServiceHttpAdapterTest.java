@@ -30,7 +30,7 @@ class StoreServiceHttpAdapterTest {
   }
 
   @Test
-  @DisplayName("Devrait retourner true si le commerce appartient bien à l'utilisateur")
+  @DisplayName("Should return true when store is owned by user")
   void shouldReturnTrueWhenStoreOwnedByUser() {
     mockServer
         .expect(requestTo("http://store-service:8080/v1/stores/10"))
@@ -46,7 +46,7 @@ class StoreServiceHttpAdapterTest {
   }
 
   @Test
-  @DisplayName("Devrait retourner false si le commerce appartient à un autre utilisateur")
+  @DisplayName("Should return false when store is owned by different user")
   void shouldReturnFalseWhenStoreOwnedByDifferentUser() {
     mockServer
         .expect(requestTo("http://store-service:8080/v1/stores/10"))
@@ -62,7 +62,7 @@ class StoreServiceHttpAdapterTest {
   }
 
   @Test
-  @DisplayName("Devrait retourner false si Store Service renvoie 404 Not Found")
+  @DisplayName("Should return false when Store Service returns 404 Not Found")
   void shouldReturnFalseWhenStoreNotFound() {
     mockServer
         .expect(
@@ -80,7 +80,7 @@ class StoreServiceHttpAdapterTest {
   }
 
   @Test
-  @DisplayName("Devrait gérer silencieusement les erreurs serveur 500 de Store Service (fail-safe)")
+  @DisplayName("Should gracefully handle Store Service 500 server error (fail-safe)")
   void shouldHandleServerErrorGracefully() {
     mockServer
         .expect(requestTo("http://store-service:8080/v1/stores/10"))

@@ -76,7 +76,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/loyalty/merchants/{storeId}/rates sans token -> doit être autorisé et retourner le barème par défaut (1€ = 1pt)")
+      "GET /v1/loyalty/merchants/{storeId}/rates without token -> should be allowed and return default rate (1€ = 1pt)")
   void shouldAllowPublicGetDefaultRate() throws Exception {
     mockMvc
         .perform(get("/v1/loyalty/merchants/100/rates"))
@@ -88,13 +88,13 @@ class MerchantLoyaltyRateControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "OPTIONS /v1/loyalty/merchants/{storeId}/rates -> doit être autorisé pour pré-vol CORS")
+      "OPTIONS /v1/loyalty/merchants/{storeId}/rates -> should be allowed for CORS preflight")
   void shouldAllowOptionsPreflightRequest() throws Exception {
     mockMvc.perform(options("/v1/loyalty/merchants/10/rates")).andExpect(status().isOk());
   }
 
   @Test
-  @DisplayName("PUT sans token -> doit renvoyer 401 Unauthorized")
+  @DisplayName("PUT without token -> should return 401 Unauthorized")
   void shouldDenyPutWithoutToken() throws Exception {
     MerchantLoyaltyRateRequest request =
         new MerchantLoyaltyRateRequest(new BigDecimal("2.50"), new BigDecimal("5.0"));
@@ -108,7 +108,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT avec token révoqué -> doit renvoyer 401 Unauthorized")
+  @DisplayName("PUT with revoked token -> should return 401 Unauthorized")
   void shouldDenyPutWithRevokedToken() throws Exception {
     String revokedJti = UUID.randomUUID().toString();
     jwtValidatorService.addRevokedJtiForTest(revokedJti);
@@ -127,7 +127,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT avec rôle CLIENT -> doit renvoyer 403 Forbidden")
+  @DisplayName("PUT with CLIENT role -> should return 403 Forbidden")
   void shouldDenyPutWithClientRole() throws Exception {
     String clientToken = generateToken("CLIENT", 1L);
     MerchantLoyaltyRateRequest request =
@@ -143,7 +143,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT avec payload invalide (euro <= 0) -> doit renvoyer 400 Bad Request")
+  @DisplayName("PUT with invalid payload (euro <= 0) -> should return 400 Bad Request")
   void shouldReturnBadRequestForInvalidPayload() throws Exception {
     String merchantToken = generateToken("MERCHANT", 42L);
     MerchantLoyaltyRateRequest invalidRequest =
@@ -159,7 +159,8 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT avec montant ayant plus de 2 décimales -> doit renvoyer 400 Bad Request")
+  @DisplayName(
+      "PUT with euro amount having more than 2 decimal places -> should return 400 Bad Request")
   void shouldRejectEuroAmountWithMoreThanTwoDecimals() throws Exception {
     String merchantToken = generateToken("MERCHANT", 42L);
     String payload = "{\"euroAmount\": 2.345, \"pointsReward\": 5}";
@@ -174,7 +175,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT sur un commerce introuvable sur Store Service -> doit renvoyer 404 Not Found")
+  @DisplayName("PUT for unknown store on Store Service -> should return 404 Not Found")
   void shouldReturnNotFoundWhenStoreDoesNotExistOnStoreService() throws Exception {
     Long unknownStoreId = 888L;
     when(storeVerificationPort.storeExists(unknownStoreId)).thenReturn(false);
@@ -190,13 +191,11 @@ class MerchantLoyaltyRateControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isNotFound())
-        .andExpect(
-            jsonPath("$.message").value(org.hamcrest.Matchers.containsString("introuvable")));
+        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("not found")));
   }
 
   @Test
-  @DisplayName(
-      "PUT avec commerçant qui n'est pas propriétaire -> doit renvoyer 403 Forbidden (BOLA)")
+  @DisplayName("PUT with merchant who does not own the store -> should return 403 Forbidden (BOLA)")
   void shouldDenyPutWhenMerchantDoesNotOwnStore() throws Exception {
     Long storeId = 10L;
     Long otherMerchantId = 99L;
@@ -214,12 +213,11 @@ class MerchantLoyaltyRateControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isForbidden())
-        .andExpect(
-            jsonPath("$.message").value(org.hamcrest.Matchers.containsString("propriétaire")));
+        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("owner")));
   }
 
   @Test
-  @DisplayName("PUT avec commerçant propriétaire légitime -> doit configurer et retourner 200 OK")
+  @DisplayName("PUT with legitimate store owner merchant -> should configure and return 200 OK")
   void shouldAllowStoreOwnerToConfigureRate() throws Exception {
     Long storeId = 25L;
     Long ownerId = 42L;
@@ -241,7 +239,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
         .andExpect(jsonPath("$.euroAmount").value(5.00))
         .andExpect(jsonPath("$.pointsReward").value(10.0));
 
-    // Vérifier que le GET public retourne ensuite la nouvelle configuration
+    // Verify that subsequent public GET returns the updated configuration
     mockMvc
         .perform(get("/v1/loyalty/merchants/" + storeId + "/rates"))
         .andExpect(status().isOk())
@@ -250,7 +248,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT avec demi-points (ex: 0.5 point) -> doit réussir et être conservé")
+  @DisplayName("PUT with half-points (e.g. 0.5 point) -> should succeed and be persisted")
   void shouldAllowConfiguringHalfPointReward() throws Exception {
     Long storeId = 26L;
     Long ownerId = 42L;
@@ -274,7 +272,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT avec points non multiple de 0.5 (ex: 0.7 pt) -> doit renvoyer 400 Bad Request")
+  @DisplayName("PUT with points not multiple of 0.5 (e.g. 0.7 pt) -> should return 400 Bad Request")
   void shouldRejectPointsNotMultipleOfHalf() throws Exception {
     Long storeId = 27L;
     Long ownerId = 42L;
@@ -294,7 +292,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT en mode ADMIN -> doit réussir sans restriction de propriétaire")
+  @DisplayName("PUT in ADMIN mode -> should succeed without ownership restriction")
   void shouldAllowAdminToConfigureRate() throws Exception {
     Long storeId = 30L;
     String adminToken = generateToken("ADMIN", 1L);

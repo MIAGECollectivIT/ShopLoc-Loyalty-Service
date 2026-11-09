@@ -15,14 +15,14 @@ class MerchantLoyaltyRateMapperTest {
   private final MerchantLoyaltyRateMapper mapper = new MerchantLoyaltyRateMapper();
 
   @Test
-  @DisplayName("toDomain et toJpaEntity doivent gérer les entrées nulles proprement")
+  @DisplayName("toDomain and toJpaEntity should handle null inputs cleanly")
   void shouldHandleNullInputs() {
     assertThat(mapper.toDomain(null)).isNull();
     assertThat(mapper.toJpaEntity(null)).isNull();
   }
 
   @Test
-  @DisplayName("Devrait mapper fidèlement un domain model vers une entité JPA et inversement")
+  @DisplayName("Should map bidirectionally between domain model and JPA entity")
   void shouldMapBidirectionally() {
     Instant now = Instant.now();
     MerchantLoyaltyRate domain =

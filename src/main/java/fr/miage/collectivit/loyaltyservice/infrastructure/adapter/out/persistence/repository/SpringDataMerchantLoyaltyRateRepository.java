@@ -5,7 +5,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-/** Interface Spring Data JPA interne à l'adaptateur de persistance. */
+/** Spring Data JPA repository internal to the persistence adapter. */
 @Repository
 public interface SpringDataMerchantLoyaltyRateRepository
     extends JpaRepository<MerchantLoyaltyRateJpaEntity, Long> {

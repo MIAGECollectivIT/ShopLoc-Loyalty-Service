@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Service applicatif orchestrant les cas d'utilisation liés aux comptes de fidélité et aux barèmes
- * marchands (Composant PointsAccountService prescrit par le schéma d'architecture).
+ * Application service orchestrating loyalty account and merchant rate use cases
+ * (PointsAccountService component prescribed by the architecture model).
  */
 @Service
 @RequiredArgsConstructor
@@ -66,14 +66,14 @@ public class PointsAccountService
     }
     if (callerUserId == null) {
       throw new StoreAccessDeniedException(
-          "Identifiant utilisateur manquant pour la modification du commerce " + storeId);
+          "Missing user identifier for modifying store " + storeId);
     }
     if (!storeVerificationPort.storeExists(storeId)) {
       throw new StoreNotFoundException(storeId);
     }
     if (!storeVerificationPort.isStoreOwnedBy(storeId, callerUserId)) {
       throw new StoreAccessDeniedException(
-          "Accès refusé : vous n'êtes pas le commerçant propriétaire du commerce " + storeId);
+          "Access denied: you are not the owner of store " + storeId);
     }
   }
 }

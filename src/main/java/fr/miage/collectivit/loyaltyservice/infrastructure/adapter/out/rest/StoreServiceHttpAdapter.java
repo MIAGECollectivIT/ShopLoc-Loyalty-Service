@@ -11,8 +11,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * Adaptateur hexagonal sortant (Secondary Adapter) interrogeant Store Service via HTTP REST pour
- * valider l'existence et la propriété d'un commerce.
+ * Outbound hexagonal adapter (Secondary Adapter) querying Store Service via HTTP REST to validate
+ * store existence and merchant ownership.
  */
 @Slf4j
 @Component
@@ -54,7 +54,7 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
                   (request, response) -> {
                     if (log.isDebugEnabled()) {
                       log.debug(
-                          "Commerce {} introuvable sur Store Service (statut {})",
+                          "Store {} not found on Store Service (status {})",
                           storeId,
                           response.getStatusCode());
                     }
@@ -63,10 +63,7 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
       return Optional.ofNullable(store);
     } catch (RestClientException ex) {
       if (log.isWarnEnabled()) {
-        log.warn(
-            "Impossible de vérifier le commerce {} auprès de Store Service : {}",
-            storeId,
-            ex.getMessage());
+        log.warn("Unable to verify store {} with Store Service: {}", storeId, ex.getMessage());
       }
       return Optional.empty();
     }

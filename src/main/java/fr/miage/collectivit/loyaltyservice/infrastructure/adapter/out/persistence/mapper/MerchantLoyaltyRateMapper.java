@@ -4,7 +4,7 @@ import fr.miage.collectivit.loyaltyservice.domain.model.MerchantLoyaltyRate;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.entity.MerchantLoyaltyRateJpaEntity;
 import org.springframework.stereotype.Component;
 
-/** Mapper bidirectionnel entre le Domain Model et la JPA Entity d'infrastructure. */
+/** Bidirectional mapper between Domain Model and infrastructure JPA Entity. */
 @Component
 public class MerchantLoyaltyRateMapper {
 

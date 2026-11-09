@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Entité JPA d'infrastructure pour la persistance dans la table PostgreSQL merchant_loyalty_rates.
+ * Infrastructure JPA entity for persisting records in the PostgreSQL merchant_loyalty_rates table.
  */
 @Entity
 @Table(name = "merchant_loyalty_rates")

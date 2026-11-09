@@ -32,7 +32,7 @@ class PointsAccountServiceTest {
   @InjectMocks private PointsAccountService service;
 
   @Test
-  @DisplayName("Devrait créer un nouveau barème en mode ADMIN sans vérification Store Service")
+  @DisplayName("Should create new rate in ADMIN mode without Store Service verification")
   void shouldCreateNewRateAsAdmin() {
     when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
     when(persistencePort.save(any(MerchantLoyaltyRate.class)))
@@ -49,7 +49,7 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName("Devrait autoriser le commerçant propriétaire à mettre à jour son barème")
+  @DisplayName("Should allow store owner merchant to configure and update rate")
   void shouldAllowStoreOwnerMerchantToConfigureRate() {
     when(storeVerificationPort.storeExists(10L)).thenReturn(true);
     when(storeVerificationPort.isStoreOwnedBy(10L, 42L)).thenReturn(true);
@@ -70,8 +70,7 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName(
-      "Devrait refuser la modification si le commerce n'existe pas (StoreNotFoundException)")
+  @DisplayName("Should reject modification when store does not exist (StoreNotFoundException)")
   void shouldThrowWhenStoreDoesNotExist() {
     when(storeVerificationPort.storeExists(999L)).thenReturn(false);
 
@@ -87,7 +86,7 @@ class PointsAccountServiceTest {
 
   @Test
   @DisplayName(
-      "Devrait refuser la modification si le commerçant n'est pas le propriétaire (StoreAccessDeniedException)")
+      "Should reject modification when merchant is not store owner (StoreAccessDeniedException)")
   void shouldThrowWhenMerchantIsNotStoreOwner() {
     when(storeVerificationPort.storeExists(10L)).thenReturn(true);
     when(storeVerificationPort.isStoreOwnedBy(10L, 99L)).thenReturn(false);
@@ -97,26 +96,26 @@ class PointsAccountServiceTest {
                 service.configureRate(
                     10L, new BigDecimal("2.00"), new BigDecimal("2.0"), 99L, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
-        .hasMessageContaining("propriétaire");
+        .hasMessageContaining("owner");
 
     verify(persistencePort, never()).save(any());
   }
 
   @Test
-  @DisplayName("Devrait refuser la modification si l'identifiant commerçant est nul")
+  @DisplayName("Should reject modification when merchant user ID is null")
   void shouldThrowWhenMerchantUserIdIsNull() {
     assertThatThrownBy(
             () ->
                 service.configureRate(
                     10L, new BigDecimal("2.00"), new BigDecimal("2.0"), (Long) null, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
-        .hasMessageContaining("manquant");
+        .hasMessageContaining("Missing");
 
     verify(persistencePort, never()).save(any());
   }
 
   @Test
-  @DisplayName("Devrait récupérer un barème existant par storeId")
+  @DisplayName("Should retrieve existing rate by storeId")
   void shouldReturnExistingRate() {
     MerchantLoyaltyRate existing =
         new MerchantLoyaltyRate(20L, new BigDecimal("1.00"), new BigDecimal("2.0"));
@@ -129,7 +128,7 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName("Devrait lever une exception si le barème n'existe pas")
+  @DisplayName("Should throw exception when rate is not found for storeId")
   void shouldThrowWhenRateNotFound() {
     when(persistencePort.findByStoreId(999L)).thenReturn(Optional.empty());
 

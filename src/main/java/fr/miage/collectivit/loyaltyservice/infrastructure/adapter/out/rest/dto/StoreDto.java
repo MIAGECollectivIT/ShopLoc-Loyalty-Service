@@ -1,4 +1,4 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.rest.dto;
 
-/** DTO représentant les données minimales nécessaires d'un commerce renvoyées par Store Service. */
+/** DTO representing minimal store data returned by Store Service. */
 public record StoreDto(Long id, String name, Long userId) {}

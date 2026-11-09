@@ -14,7 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/** Gestionnaire global des exceptions pour les adaptateurs Web de Loyalty Service. */
+/** Global exception handler for Loyalty Service web adapters. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

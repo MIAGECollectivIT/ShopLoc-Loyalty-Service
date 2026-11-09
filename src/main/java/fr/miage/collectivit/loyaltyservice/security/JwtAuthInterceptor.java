@@ -96,7 +96,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     if (requiresRole != null) {
       response.sendError(
           HttpServletResponse.SC_UNAUTHORIZED,
-          "En-tête d'autorisation manquant ou invalide. Un jeton Bearer JWT est requis.");
+          "Missing or invalid authorization header. A JWT Bearer token is required.");
       return false;
     }
     return true;
@@ -108,12 +108,12 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     if (requiresRole != null) {
       response.sendError(
           HttpServletResponse.SC_UNAUTHORIZED,
-          "Jeton d'authentification invalide ou expiré : " + ex.getMessage());
+          "Invalid or expired authentication token: " + ex.getMessage());
       return false;
     }
     if (log.isDebugEnabled()) {
       log.debug(
-          "Jeton invalide sur endpoint public {}. Accès anonyme autorisé : {}",
+          "Invalid token on public endpoint {}. Anonymous access allowed: {}",
           path,
           ex.getMessage());
     }
@@ -139,7 +139,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     try {
       request.setAttribute(ATTR_USER_DB_ID, Long.parseLong(dbIdStr));
     } catch (NumberFormatException ignored) {
-      // Ignoré si le format ne correspond pas
+      // Ignored if format does not match
     }
   }
 
@@ -159,9 +159,9 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     }
     response.sendError(
         HttpServletResponse.SC_FORBIDDEN,
-        "Accès refusé : un des rôles "
+        "Access denied: one of the roles "
             + Arrays.toString(allowedRoles)
-            + " est requis pour effectuer cette action.");
+            + " is required to perform this action.");
     return false;
   }
 

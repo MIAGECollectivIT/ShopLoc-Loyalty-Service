@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 class MerchantLoyaltyRateTest {
 
   @Test
-  @DisplayName("Devrait créer un barème de fidélité valide avec points entiers ou demi-points")
+  @DisplayName("Should create valid loyalty rate with whole or half points")
   void shouldCreateValidLoyaltyRate() {
     MerchantLoyaltyRate rate =
         new MerchantLoyaltyRate(1L, new BigDecimal("1.50"), new BigDecimal("2.5"));
@@ -27,37 +27,37 @@ class MerchantLoyaltyRateTest {
   }
 
   @Test
-  @DisplayName("Devrait refuser un montant en euro négatif ou nul")
+  @DisplayName("Should reject zero or negative euro amount")
   void shouldRejectZeroOrNegativeEuroAmount() {
     assertThatThrownBy(() -> new MerchantLoyaltyRate(1L, BigDecimal.ZERO, new BigDecimal("1.0")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
-        .hasMessageContaining("strictement positif");
+        .hasMessageContaining("strictly positive");
 
     assertThatThrownBy(
             () -> new MerchantLoyaltyRate(1L, new BigDecimal("-5.00"), new BigDecimal("1.0")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
-        .hasMessageContaining("strictement positif");
+        .hasMessageContaining("strictly positive");
   }
 
   @Test
-  @DisplayName("Devrait refuser un nombre de points inférieur à 0.5 ou non multiple de 0.5")
+  @DisplayName("Should reject points reward below 0.5 or not multiple of 0.5")
   void shouldRejectInvalidPointsReward() {
     assertThatThrownBy(() -> new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), BigDecimal.ZERO))
         .isInstanceOf(InvalidLoyaltyRateException.class)
-        .hasMessageContaining("supérieur ou égal à 0.5");
+        .hasMessageContaining("greater than or equal to 0.5");
 
     assertThatThrownBy(
             () -> new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), new BigDecimal("0.3")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
-        .hasMessageContaining("supérieur ou égal à 0.5");
+        .hasMessageContaining("greater than or equal to 0.5");
 
     assertThatThrownBy(
             () -> new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), new BigDecimal("1.2")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
-        .hasMessageContaining("multiple de 0.5");
+        .hasMessageContaining("multiple of 0.5");
   }
 
-  @ParameterizedTest(name = "Achat de {0} € avec barème 1 € = 1 pt donne {1} points")
+  @ParameterizedTest(name = "Purchase of {0} € with rate 1 € = 1 pt yields {1} points")
   @CsvSource({
     "0.00, 0.0",
     "0.40, 0.0",
@@ -69,7 +69,7 @@ class MerchantLoyaltyRateTest {
     "9.99, 9.5",
     "10.00, 10.0"
   })
-  @DisplayName("Critère SLE-55 : règle par pas de demi-point pour barème standard (1 € = 1 pt)")
+  @DisplayName("SLE-55 criterion: half-point step rule for standard rate (1 € = 1 pt)")
   void shouldCalculatePointsWithStandardRate(String purchaseStr, String expectedPointsStr) {
     MerchantLoyaltyRate rate =
         new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), new BigDecimal("1.0"));
@@ -79,9 +79,9 @@ class MerchantLoyaltyRateTest {
     assertThat(points).isEqualByComparingTo(new BigDecimal(expectedPointsStr));
   }
 
-  @ParameterizedTest(name = "Achat de {0} € avec barème 2 € = 1 pt donne {1} points")
+  @ParameterizedTest(name = "Purchase of {0} € with rate 2 € = 1 pt yields {1} points")
   @CsvSource({"1.00, 0.5", "2.00, 1.0", "3.00, 1.5", "24.00, 12.0", "25.00, 12.5", "27.00, 13.5"})
-  @DisplayName("Critère SLE-55 : achat de 25 € avec 2 € = 1 pt donne bien 12.5 points")
+  @DisplayName("SLE-55 criterion: 25 € purchase with 2 € = 1 pt yields 12.5 points")
   void shouldCalculateHalfPointsAccurately(String purchaseStr, String expectedPointsStr) {
     MerchantLoyaltyRate rate =
         new MerchantLoyaltyRate(1L, new BigDecimal("2.00"), new BigDecimal("1.0"));
@@ -91,9 +91,9 @@ class MerchantLoyaltyRateTest {
     assertThat(points).isEqualByComparingTo(new BigDecimal(expectedPointsStr));
   }
 
-  @ParameterizedTest(name = "Achat de {0} € avec barème 5 € = 10 pts donne {1} points")
+  @ParameterizedTest(name = "Purchase of {0} € with rate 5 € = 10 pts yields {1} points")
   @CsvSource({"4.99, 9.5", "5.00, 10.0", "7.50, 15.0", "10.00, 20.0", "14.99, 29.5", "15.00, 30.0"})
-  @DisplayName("Critère SLE-55 : calcul proportionnel pour barème personnalisé (5 € = 10 pts)")
+  @DisplayName("SLE-55 criterion: proportional calculation for custom rate (5 € = 10 pts)")
   void shouldCalculatePointsWithCustomRate(String purchaseStr, String expectedPointsStr) {
     MerchantLoyaltyRate rate =
         new MerchantLoyaltyRate(2L, new BigDecimal("5.00"), new BigDecimal("10.0"));

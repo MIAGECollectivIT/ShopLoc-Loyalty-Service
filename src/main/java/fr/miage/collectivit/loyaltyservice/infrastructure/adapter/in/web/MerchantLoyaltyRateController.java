@@ -27,8 +27,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Adaptateur hexagonal entrant (Primary/Driving Web Adapter) exposant les endpoints REST de
- * consultation et de configuration du barème de fidélité commerçant.
+ * Primary inbound hexagonal adapter (Primary/Driving Web Adapter) exposing REST endpoints for
+ * querying and configuring merchant loyalty rates.
  */
 @RestController
 @RequestMapping("/v1/loyalty/merchants/{storeId}/rates")

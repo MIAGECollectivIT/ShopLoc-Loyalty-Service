@@ -9,10 +9,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * Adaptateur de persistance secondaire (Outbound Adapter) reliant le port de persistance du domaine
- * à Spring Data JPA.
- */
+/** Outbound persistence adapter connecting the domain persistence port to Spring Data JPA. */
 @Component
 @RequiredArgsConstructor
 public class MerchantLoyaltyRatePersistenceAdapter implements MerchantLoyaltyRatePersistencePort {
