@@ -13,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 /** Global exception handler for Loyalty Service web adapters. */
 @RestControllerAdvice
@@ -21,6 +22,14 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(InvalidLoyaltyRateException.class)
   public ResponseEntity<Map<String, Object>> handleInvalidLoyaltyRate(
       InvalidLoyaltyRateException ex) {
+    return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+  }
+
+  @ExceptionHandler({
+    HandlerMethodValidationException.class,
+    jakarta.validation.ConstraintViolationException.class
+  })
+  public ResponseEntity<Map<String, Object>> handleMethodValidationExceptions(Exception ex) {
     return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 

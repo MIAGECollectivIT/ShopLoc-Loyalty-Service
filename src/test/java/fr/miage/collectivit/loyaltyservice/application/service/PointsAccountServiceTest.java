@@ -45,14 +45,13 @@ class PointsAccountServiceTest {
     assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.00"));
     assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
     verify(persistencePort).save(any(MerchantLoyaltyRate.class));
-    verify(storeVerificationPort, never()).storeExists(any());
+    verify(storeVerificationPort, never()).findStoreOwnerId(any());
   }
 
   @Test
   @DisplayName("Should allow store owner merchant to configure and update rate")
   void shouldAllowStoreOwnerMerchantToConfigureRate() {
-    when(storeVerificationPort.storeExists(10L)).thenReturn(true);
-    when(storeVerificationPort.isStoreOwnedBy(10L, 42L)).thenReturn(true);
+    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
 
     MerchantLoyaltyRate existing =
         new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"));
@@ -72,7 +71,7 @@ class PointsAccountServiceTest {
   @Test
   @DisplayName("Should reject modification when store does not exist (StoreNotFoundException)")
   void shouldThrowWhenStoreDoesNotExist() {
-    when(storeVerificationPort.storeExists(999L)).thenReturn(false);
+    when(storeVerificationPort.findStoreOwnerId(999L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->
@@ -88,13 +87,12 @@ class PointsAccountServiceTest {
   @DisplayName(
       "Should reject modification when merchant is not store owner (StoreAccessDeniedException)")
   void shouldThrowWhenMerchantIsNotStoreOwner() {
-    when(storeVerificationPort.storeExists(10L)).thenReturn(true);
-    when(storeVerificationPort.isStoreOwnedBy(10L, 99L)).thenReturn(false);
+    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(99L));
 
     assertThatThrownBy(
             () ->
                 service.configureRate(
-                    10L, new BigDecimal("2.00"), new BigDecimal("2.0"), 99L, "MERCHANT"))
+                    10L, new BigDecimal("2.00"), new BigDecimal("2.0"), 42L, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
         .hasMessageContaining("owner");
 

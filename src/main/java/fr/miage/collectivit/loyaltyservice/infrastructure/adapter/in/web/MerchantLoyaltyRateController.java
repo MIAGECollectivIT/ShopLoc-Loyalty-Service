@@ -17,8 +17,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Primary inbound hexagonal adapter (Primary/Driving Web Adapter) exposing REST endpoints for
  * querying and configuring merchant loyalty rates.
  */
+@Validated
 @RestController
 @RequestMapping("/v1/loyalty/merchants/{storeId}/rates")
 @Tag(
@@ -51,7 +54,9 @@ public class MerchantLoyaltyRateController {
         @ApiResponse(responseCode = "200", description = "Barème de fidélité récupéré avec succès")
       })
   public ResponseEntity<MerchantLoyaltyRateResponse> getRate(
-      @Parameter(description = "Identifiant unique du commerce", example = "10") @PathVariable
+      @Parameter(description = "Identifiant unique du commerce", example = "10")
+          @PathVariable
+          @Positive(message = "Store identifier must be positive")
           Long storeId) {
     try {
       MerchantLoyaltyRate rate = getRateQuery.getRateByStoreId(storeId);
@@ -83,7 +88,9 @@ public class MerchantLoyaltyRateController {
         @ApiResponse(responseCode = "404", description = "Commerce introuvable")
       })
   public ResponseEntity<MerchantLoyaltyRateResponse> configureRate(
-      @Parameter(description = "Identifiant unique du commerce", example = "10") @PathVariable
+      @Parameter(description = "Identifiant unique du commerce", example = "10")
+          @PathVariable
+          @Positive(message = "Store identifier must be positive")
           Long storeId,
       @Valid @RequestBody MerchantLoyaltyRateRequest requestDto,
       HttpServletRequest request) {

@@ -28,7 +28,6 @@ public class PointsAccountService
   private final StoreVerificationPort storeVerificationPort;
 
   @Override
-  @Transactional
   public MerchantLoyaltyRate configureRate(
       Long storeId,
       BigDecimal euroAmount,
@@ -68,10 +67,12 @@ public class PointsAccountService
       throw new StoreAccessDeniedException(
           "Missing user identifier for modifying store " + storeId);
     }
-    if (!storeVerificationPort.storeExists(storeId)) {
-      throw new StoreNotFoundException(storeId);
-    }
-    if (!storeVerificationPort.isStoreOwnedBy(storeId, callerUserId)) {
+    Long ownerId =
+        storeVerificationPort
+            .findStoreOwnerId(storeId)
+            .orElseThrow(() -> new StoreNotFoundException(storeId));
+
+    if (!ownerId.equals(callerUserId)) {
       throw new StoreAccessDeniedException(
           "Access denied: you are not the owner of store " + storeId);
     }

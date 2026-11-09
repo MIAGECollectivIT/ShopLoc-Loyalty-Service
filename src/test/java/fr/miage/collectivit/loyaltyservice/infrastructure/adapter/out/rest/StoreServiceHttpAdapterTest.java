@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,8 +31,8 @@ class StoreServiceHttpAdapterTest {
   }
 
   @Test
-  @DisplayName("Should return true when store is owned by user")
-  void shouldReturnTrueWhenStoreOwnedByUser() {
+  @DisplayName("Should return owner userId when store exists on Store Service")
+  void shouldReturnOwnerIdWhenStoreExists() {
     mockServer
         .expect(requestTo("http://store-service:8080/v1/stores/10"))
         .andExpect(method(HttpMethod.GET))
@@ -39,43 +40,23 @@ class StoreServiceHttpAdapterTest {
             withSuccess(
                 "{\"id\":10,\"name\":\"Boulangerie\",\"userId\":42}", MediaType.APPLICATION_JSON));
 
-    boolean isOwner = adapter.isStoreOwnedBy(10L, 42L);
+    Optional<Long> ownerId = adapter.findStoreOwnerId(10L);
 
-    assertThat(isOwner).isTrue();
+    assertThat(ownerId).contains(42L);
     mockServer.verify();
   }
 
   @Test
-  @DisplayName("Should return false when store is owned by different user")
-  void shouldReturnFalseWhenStoreOwnedByDifferentUser() {
+  @DisplayName("Should return empty when Store Service returns 404 Not Found")
+  void shouldReturnEmptyWhenStoreNotFound() {
     mockServer
-        .expect(requestTo("http://store-service:8080/v1/stores/10"))
-        .andExpect(method(HttpMethod.GET))
-        .andRespond(
-            withSuccess(
-                "{\"id\":10,\"name\":\"Boulangerie\",\"userId\":42}", MediaType.APPLICATION_JSON));
-
-    boolean isOwner = adapter.isStoreOwnedBy(10L, 99L);
-
-    assertThat(isOwner).isFalse();
-    mockServer.verify();
-  }
-
-  @Test
-  @DisplayName("Should return false when Store Service returns 404 Not Found")
-  void shouldReturnFalseWhenStoreNotFound() {
-    mockServer
-        .expect(
-            org.springframework.test.web.client.ExpectedCount.twice(),
-            requestTo("http://store-service:8080/v1/stores/999"))
+        .expect(requestTo("http://store-service:8080/v1/stores/999"))
         .andExpect(method(HttpMethod.GET))
         .andRespond(withStatus(HttpStatus.NOT_FOUND));
 
-    boolean exists = adapter.storeExists(999L);
-    boolean isOwner = adapter.isStoreOwnedBy(999L, 42L);
+    Optional<Long> ownerId = adapter.findStoreOwnerId(999L);
 
-    assertThat(exists).isFalse();
-    assertThat(isOwner).isFalse();
+    assertThat(ownerId).isEmpty();
     mockServer.verify();
   }
 
@@ -87,9 +68,9 @@ class StoreServiceHttpAdapterTest {
         .andExpect(method(HttpMethod.GET))
         .andRespond(withServerError());
 
-    boolean exists = adapter.storeExists(10L);
+    Optional<Long> ownerId = adapter.findStoreOwnerId(10L);
 
-    assertThat(exists).isFalse();
+    assertThat(ownerId).isEmpty();
     mockServer.verify();
   }
 }

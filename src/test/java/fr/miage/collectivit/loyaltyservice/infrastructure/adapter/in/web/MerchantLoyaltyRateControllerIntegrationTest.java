@@ -16,6 +16,7 @@ import io.jsonwebtoken.security.Keys;
 import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
@@ -178,7 +179,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   @DisplayName("PUT for unknown store on Store Service -> should return 404 Not Found")
   void shouldReturnNotFoundWhenStoreDoesNotExistOnStoreService() throws Exception {
     Long unknownStoreId = 888L;
-    when(storeVerificationPort.storeExists(unknownStoreId)).thenReturn(false);
+    when(storeVerificationPort.findStoreOwnerId(unknownStoreId)).thenReturn(Optional.empty());
 
     String token = generateToken("MERCHANT", 42L);
     MerchantLoyaltyRateRequest request =
@@ -199,8 +200,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   void shouldDenyPutWhenMerchantDoesNotOwnStore() throws Exception {
     Long storeId = 10L;
     Long otherMerchantId = 99L;
-    when(storeVerificationPort.storeExists(storeId)).thenReturn(true);
-    when(storeVerificationPort.isStoreOwnedBy(storeId, otherMerchantId)).thenReturn(false);
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(42L));
 
     String token = generateToken("MERCHANT", otherMerchantId);
     MerchantLoyaltyRateRequest request =
@@ -221,8 +221,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   void shouldAllowStoreOwnerToConfigureRate() throws Exception {
     Long storeId = 25L;
     Long ownerId = 42L;
-    when(storeVerificationPort.storeExists(storeId)).thenReturn(true);
-    when(storeVerificationPort.isStoreOwnedBy(storeId, ownerId)).thenReturn(true);
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(ownerId));
 
     String token = generateToken("MERCHANT", ownerId);
     MerchantLoyaltyRateRequest request =
@@ -252,8 +251,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   void shouldAllowConfiguringHalfPointReward() throws Exception {
     Long storeId = 26L;
     Long ownerId = 42L;
-    when(storeVerificationPort.storeExists(storeId)).thenReturn(true);
-    when(storeVerificationPort.isStoreOwnedBy(storeId, ownerId)).thenReturn(true);
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(ownerId));
 
     String token = generateToken("MERCHANT", ownerId);
     MerchantLoyaltyRateRequest request =
@@ -276,8 +274,7 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   void shouldRejectPointsNotMultipleOfHalf() throws Exception {
     Long storeId = 27L;
     Long ownerId = 42L;
-    when(storeVerificationPort.storeExists(storeId)).thenReturn(true);
-    when(storeVerificationPort.isStoreOwnedBy(storeId, ownerId)).thenReturn(true);
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(ownerId));
 
     String token = generateToken("MERCHANT", ownerId);
     String payload = "{\"euroAmount\": 2.00, \"pointsReward\": 0.7}";
@@ -309,5 +306,35 @@ class MerchantLoyaltyRateControllerIntegrationTest {
         .andExpect(jsonPath("$.storeId").value(storeId))
         .andExpect(jsonPath("$.euroAmount").value(10.00))
         .andExpect(jsonPath("$.pointsReward").value(20.0));
+  }
+
+  @Test
+  @DisplayName("GET with non-positive storeId -> should return 400 Bad Request")
+  void shouldRejectGetWithNegativeStoreId() throws Exception {
+    mockMvc
+        .perform(get("/v1/loyalty/merchants/-5/rates"))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            jsonPath("$.message")
+                .value(org.hamcrest.Matchers.containsString("Store identifier must be positive")));
+  }
+
+  @Test
+  @DisplayName("PUT with non-positive storeId -> should return 400 Bad Request")
+  void shouldRejectPutWithNegativeStoreId() throws Exception {
+    String adminToken = generateToken("ADMIN", 1L);
+    MerchantLoyaltyRateRequest request =
+        new MerchantLoyaltyRateRequest(new BigDecimal("10.00"), new BigDecimal("20.0"));
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/merchants/0/rates")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            jsonPath("$.message")
+                .value(org.hamcrest.Matchers.containsString("Store identifier must be positive")));
   }
 }

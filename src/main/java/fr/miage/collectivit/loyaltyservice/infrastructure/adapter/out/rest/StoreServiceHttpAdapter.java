@@ -2,10 +2,14 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.rest;
 
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.rest.dto.StoreDto;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -18,28 +22,37 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class StoreServiceHttpAdapter implements StoreVerificationPort {
 
+  private static final int CONNECT_TIMEOUT_SECONDS = 2;
+  private static final int READ_TIMEOUT_SECONDS = 3;
+
   private final RestClient restClient;
 
   @org.springframework.beans.factory.annotation.Autowired
   public StoreServiceHttpAdapter(
       @Value("${services.store-service.url:http://store-service:8080}") String storeServiceUrl) {
-    this(RestClient.builder().baseUrl(storeServiceUrl).build());
+    this(
+        RestClient.builder()
+            .baseUrl(storeServiceUrl)
+            .requestFactory(createClientHttpRequestFactory())
+            .build());
   }
 
   StoreServiceHttpAdapter(RestClient restClient) {
     this.restClient = restClient;
   }
 
-  @Override
-  public boolean isStoreOwnedBy(Long storeId, Long userId) {
-    return fetchStore(storeId)
-        .map(store -> store.userId() != null && store.userId().equals(userId))
-        .orElse(false);
+  @SuppressWarnings("PMD.CloseResource")
+  private static ClientHttpRequestFactory createClientHttpRequestFactory() {
+    HttpClient httpClient =
+        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS)).build();
+    JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+    factory.setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS));
+    return factory;
   }
 
   @Override
-  public boolean storeExists(Long storeId) {
-    return fetchStore(storeId).isPresent();
+  public Optional<Long> findStoreOwnerId(Long storeId) {
+    return fetchStore(storeId).map(StoreDto::userId);
   }
 
   private Optional<StoreDto> fetchStore(Long storeId) {
