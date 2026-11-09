@@ -143,14 +143,14 @@ application:
 
 ## 5. Project structure
 
-> 📘 Pour une description détaillée et des diagrammes de séquence du fonctionnement interne, consultez le document d'architecture : [**docs/architecture-hexagonale.md**](docs/architecture-hexagonale.md).
+> 📘 For a detailed description and sequence diagrams of internal flows, see the architecture document: [**docs/architecture-hexagonale.md**](docs/architecture-hexagonale.md).
 
-Le projet adopte une **Architecture Hexagonale (Ports & Adaptateurs)** stricte :
+The project strictly follows **Hexagonal Architecture (Ports & Adapters)**:
 
 ```
-├── docs/                        # Spécifications et architecture hexagonale détaillée
+├── docs/                        # Detailed architecture specifications and sequence diagrams
 │   └── architecture-hexagonale.md
-├── bruno/                       # Collections de requêtes et tests d'API Bruno
+├── bruno/                       # Bruno API request collections and integration tests
 │   └── Loyalty Service/
 ├── .dockerignore                # Docker build context exclusions
 ├── .github/                     # GitHub Actions workflows (CI & CD)

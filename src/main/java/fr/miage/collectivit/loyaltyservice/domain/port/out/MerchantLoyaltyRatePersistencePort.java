@@ -4,8 +4,8 @@ import fr.miage.collectivit.loyaltyservice.domain.model.MerchantLoyaltyRate;
 import java.util.Optional;
 
 /**
- * Port de sortie (Driven / Secondary Port) définissant le contrat de persistance pour le barème de
- * fidélité des commerces.
+ * Outbound port (Driven / Secondary Port) defining the persistence contract for merchant loyalty
+ * rates.
  */
 public interface MerchantLoyaltyRatePersistencePort {
 

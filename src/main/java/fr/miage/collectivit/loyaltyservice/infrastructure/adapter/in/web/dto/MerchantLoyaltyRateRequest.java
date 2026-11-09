@@ -5,25 +5,25 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
-/** Requête de configuration du barème de conversion euro/points pour un commerce. */
+/** Request DTO for configuring the euro-to-points loyalty conversion rate for a store. */
 public record MerchantLoyaltyRateRequest(
-    @NotNull(message = "Le montant en euros est obligatoire")
+    @NotNull(message = "Euro amount is mandatory")
         @DecimalMin(
             value = "0.01",
             inclusive = true,
-            message = "Le montant en euros doit être strictement supérieur à 0")
+            message = "Euro amount must be strictly greater than 0")
         @Digits(
             integer = 8,
             fraction = 2,
-            message = "Le montant en euros doit comporter au maximum 2 décimales")
+            message = "Euro amount must have at most 2 decimal places")
         BigDecimal euroAmount,
-    @NotNull(message = "Le nombre de points attribués est obligatoire")
+    @NotNull(message = "Points reward is mandatory")
         @DecimalMin(
             value = "0.5",
             inclusive = true,
-            message = "Le nombre de points doit être supérieur ou égal à 0.5")
+            message = "Points reward must be greater than or equal to 0.5")
         @Digits(
             integer = 8,
             fraction = 1,
-            message = "Le nombre de points doit comporter au maximum 1 décimale (par pas de 0.5)")
+            message = "Points reward must have at most 1 decimal place (in steps of 0.5)")
         BigDecimal pointsReward) {}

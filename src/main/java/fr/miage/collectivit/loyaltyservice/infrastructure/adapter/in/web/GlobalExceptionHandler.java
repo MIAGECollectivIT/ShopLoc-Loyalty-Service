@@ -7,20 +7,30 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundExcepti
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
-/** Gestionnaire global des exceptions pour les adaptateurs Web de Loyalty Service. */
+/** Global exception handler for Loyalty Service web adapters. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
   @ExceptionHandler(InvalidLoyaltyRateException.class)
   public ResponseEntity<Map<String, Object>> handleInvalidLoyaltyRate(
       InvalidLoyaltyRateException ex) {
+    return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+  }
+
+  @ExceptionHandler({
+    HandlerMethodValidationException.class,
+    jakarta.validation.ConstraintViolationException.class
+  })
+  public ResponseEntity<Map<String, Object>> handleMethodValidationExceptions(Exception ex) {
     return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
@@ -54,6 +64,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<Map<String, Object>> handleMerchantLoyaltyRateNotFound(
       MerchantLoyaltyRateNotFoundException ex) {
     return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+      DataIntegrityViolationException ex) {
+    return buildResponse(
+        HttpStatus.CONFLICT, "A database conflict occurred while updating loyalty rate for store.");
   }
 
   private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {

@@ -4,7 +4,7 @@ import fr.miage.collectivit.loyaltyservice.domain.model.MerchantLoyaltyRate;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** Réponse renvoyant le barème de fidélité d'un commerce. */
+/** Response DTO containing the loyalty rate configuration for a store. */
 public record MerchantLoyaltyRateResponse(
     Long id,
     Long storeId,
@@ -27,12 +27,6 @@ public record MerchantLoyaltyRateResponse(
   }
 
   public static MerchantLoyaltyRateResponse defaultRate(Long storeId) {
-    return new MerchantLoyaltyRateResponse(
-        null,
-        storeId,
-        MerchantLoyaltyRate.DEFAULT_EURO_AMOUNT,
-        MerchantLoyaltyRate.DEFAULT_POINTS_REWARD,
-        null,
-        null);
+    return fromDomain(MerchantLoyaltyRate.defaultForStore(storeId));
   }
 }

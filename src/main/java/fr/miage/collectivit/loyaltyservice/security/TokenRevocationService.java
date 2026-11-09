@@ -59,7 +59,7 @@ public class TokenRevocationService {
     cachedRevokedJtis.addAll(newRevoked);
     if (log.isDebugEnabled()) {
       log.debug(
-          "Liste des jetons révoqués rafraîchie : {} jetons actifs.",
+          "Revoked tokens list refreshed: {} active tokens.",
           Integer.valueOf(cachedRevokedJtis.size()));
     }
   }
@@ -77,7 +77,7 @@ public class TokenRevocationService {
       }
     } catch (IOException ex) {
       if (log.isDebugEnabled()) {
-        log.debug("Impossible d'analyser les jetons révoqués : {}", ex.getMessage());
+        log.debug("Unable to parse revoked tokens: {}", ex.getMessage());
       }
     }
     return result;
@@ -99,11 +99,11 @@ public class TokenRevocationService {
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
       if (log.isDebugEnabled()) {
-        log.debug("Interruption lors de la récupération des jetons révoqués : {}", ex.getMessage());
+        log.debug("Interrupted while fetching revoked tokens: {}", ex.getMessage());
       }
     } catch (IOException | IllegalArgumentException ex) {
       if (log.isDebugEnabled()) {
-        log.debug("Impossible de rafraîchir la liste des jetons révoqués : {}", ex.getMessage());
+        log.debug("Unable to refresh revoked tokens list: {}", ex.getMessage());
       }
     }
     return Optional.empty();

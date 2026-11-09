@@ -1,22 +1,15 @@
 package fr.miage.collectivit.loyaltyservice.domain.port.out;
 
-/** Port sortant pour vérifier l'existence d'un commerce et valider la propriété d'un commerçant. */
+import java.util.Optional;
+
+/** Outbound port for verifying store existence and validating merchant ownership. */
 public interface StoreVerificationPort {
 
   /**
-   * Vérifie si l'utilisateur donné est le propriétaire du commerce.
+   * Retrieves the owner user identifier of the specified store, if the store exists.
    *
-   * @param storeId identifiant unique du commerce
-   * @param userId identifiant interne de l'utilisateur commerçant (dbId)
-   * @return true si le commerce existe et appartient à cet utilisateur, false sinon
+   * @param storeId unique identifier of the store
+   * @return an Optional containing the owner user ID (dbId), or empty if the store does not exist
    */
-  boolean isStoreOwnedBy(Long storeId, Long userId);
-
-  /**
-   * Vérifie si le commerce existe.
-   *
-   * @param storeId identifiant unique du commerce
-   * @return true si le commerce existe, false sinon
-   */
-  boolean storeExists(Long storeId);
+  Optional<Long> findStoreOwnerId(Long storeId);
 }

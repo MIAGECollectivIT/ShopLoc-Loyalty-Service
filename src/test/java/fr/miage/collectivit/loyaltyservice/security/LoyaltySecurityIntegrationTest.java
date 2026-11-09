@@ -55,13 +55,13 @@ class LoyaltySecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/status sans token -> doit renvoyer 401 Unauthorized")
+  @DisplayName("GET /v1/loyalty/status without token -> should return 401 Unauthorized")
   void shouldDenyLoyaltyStatusWithoutToken() throws Exception {
     mockMvc.perform(get("/v1/loyalty/status")).andExpect(status().isUnauthorized());
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/status avec JWT valide -> doit renvoyer 200 OK")
+  @DisplayName("GET /v1/loyalty/status with valid JWT -> should return 200 OK")
   void shouldAllowLoyaltyStatusWithValidToken() throws Exception {
     String token = generateTestToken("CLIENT", "client@shoploc.fr", UUID.randomUUID().toString());
     mockMvc
@@ -72,7 +72,7 @@ class LoyaltySecurityIntegrationTest {
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/status avec token révoqué -> doit renvoyer 401 Unauthorized")
+  @DisplayName("GET /v1/loyalty/status with revoked token -> should return 401 Unauthorized")
   void shouldDenyLoyaltyStatusWithRevokedToken() throws Exception {
     String revokedJti = UUID.randomUUID().toString();
     jwtValidatorService.addRevokedJtiForTest(revokedJti);

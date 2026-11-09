@@ -21,7 +21,7 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   @Autowired private MerchantLoyaltyRatePersistenceAdapter persistenceAdapter;
 
   @Test
-  @DisplayName("Devrait sauvegarder et retrouver le barème de fidélité via l'adaptateur")
+  @DisplayName("Should save and retrieve loyalty rate via adapter")
   void shouldSaveAndFindByStoreIdViaAdapter() {
     MerchantLoyaltyRate rate =
         new MerchantLoyaltyRate(10L, new BigDecimal("2.50"), new BigDecimal("5.0"));
@@ -40,7 +40,7 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   }
 
   @Test
-  @DisplayName("Devrait refuser deux barèmes pour un même storeId (contrainte d'unicité en base)")
+  @DisplayName("Should reject duplicate storeId via adapter (database uniqueness constraint)")
   void shouldRejectDuplicateStoreIdViaAdapter() {
     MerchantLoyaltyRate rate1 =
         new MerchantLoyaltyRate(42L, new BigDecimal("1.00"), new BigDecimal("1.0"));
@@ -54,7 +54,7 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   }
 
   @Test
-  @DisplayName("Devrait vérifier l'existence d'un barème par storeId via l'adaptateur")
+  @DisplayName("Should check existence by storeId via adapter")
   void shouldCheckExistenceByStoreIdViaAdapter() {
     assertThat(persistenceAdapter.existsByStoreId(99L)).isFalse();
 
@@ -66,7 +66,7 @@ class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
   }
 
   @Test
-  @DisplayName("Devrait supprimer le barème par storeId via l'adaptateur")
+  @DisplayName("Should delete rate by storeId via adapter")
   void shouldDeleteByStoreIdViaAdapter() {
     MerchantLoyaltyRate rate =
         new MerchantLoyaltyRate(100L, new BigDecimal("1.00"), new BigDecimal("1.0"));

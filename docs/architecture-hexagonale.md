@@ -1,108 +1,110 @@
-# Architecture Hexagonale (Ports et Adaptateurs) - ShopLoc Loyalty Service
+# Hexagonal Architecture (Ports and Adapters) - ShopLoc Loyalty Service
 
-Ce document détaille l'organisation, les principes directeurs et le fonctionnement concret de l'**Architecture Hexagonale** (ou architecture à *Ports et Adaptateurs*, initialement formalisée par Alistair Cockburn) mise en œuvre dans le microservice `ShopLoc-Loyalty-Service`.
+This document details the organization, guiding principles, and implementation of the **Hexagonal Architecture** (also known as the *Ports and Adapters* pattern, originally formulated by Alistair Cockburn) within the `ShopLoc-Loyalty-Service` microservice.
 
 ---
 
-## 1. Principes Fondamentaux
+## 1. Core Principles
 
-L'architecture hexagonale a pour objectif premier d'**isoler le cœur métier de l'application (Domaine)** de toute dépendance technologique ou infrastructurelle (frameworks, bases de données, protocoles de communication, bibliothèques tierces).
+The primary objective of hexagonal architecture is to **isolate the core business logic (Domain)** from all technical and infrastructural concerns (frameworks, databases, communication protocols, third-party libraries).
 
 ```mermaid
 flowchart TB
-    subgraph DrivingAdapters["Adaptateurs Primaires (Driving / Inbound)"]
+    subgraph DrivingAdapters["Primary Adapters (Driving / Inbound)"]
         direction TB
         WebCtrl["REST Controller<br/>MerchantLoyaltyRateController"]
-        KafkaConsumer["Futur Consommateur Kafka<br/>OrderPlacedEventListener"]
+        KafkaConsumer["Future Kafka Consumer<br/>OrderPlacedEventListener"]
     end
 
-    subgraph Core["Hexagone : Cœur Applicatif et Métier"]
+    subgraph Core["Hexagon: Core Application and Domain"]
         direction TB
-        subgraph PortsIn["Ports Primaires (Inbound)"]
-            InUseCase["ConfigureLoyaltyRateUseCase<br/>GetLoyaltyRateUseCase"]
+        subgraph PortsIn["Primary Ports (Inbound)"]
+            InUseCase["ConfigureMerchantLoyaltyRateUseCase<br/>GetMerchantLoyaltyRateQuery"]
         end
 
-        subgraph Application["Orchestration Applicative"]
+        subgraph Application["Application Orchestration"]
             AppService["PointsAccountService<br/>(Application Service)"]
         end
 
-        subgraph Domain["Domaine Métier Pur (POJO)"]
-            DomainModel["MerchantLoyaltyRate<br/>(Règles métier du barème)"]
+        subgraph Domain["Pure Business Domain (POJO)"]
+            DomainModel["MerchantLoyaltyRate<br/>(Rate business rules)"]
             DomainExceptions["StoreAccessDeniedException<br/>StoreNotFoundException"]
         end
 
-        subgraph PortsOut["Ports Secondaires (Outbound)"]
+        subgraph PortsOut["Secondary Ports (Outbound)"]
             PersistPort["MerchantLoyaltyRatePersistencePort"]
             StorePort["StoreVerificationPort"]
         end
     end
 
-    subgraph DrivenAdapters["Adaptateurs Secondaires (Driven / Outbound)"]
+    subgraph DrivenAdapters["Secondary Adapters (Driven / Outbound)"]
         direction TB
-        subgraph Persistence["Persistance PostgreSQL"]
+        subgraph Persistence["PostgreSQL Persistence"]
             PersistAdapter["MerchantLoyaltyRatePersistenceAdapter"]
             SpringDataRepo["SpringDataRepository"]
             JpaEntity["MerchantLoyaltyRateJpaEntity"]
         end
-        subgraph HttpClients["Clients HTTP Inter-Services"]
+        subgraph HttpClients["Inter-Service HTTP Clients"]
             StoreHttpAdapter["StoreServiceHttpAdapter<br/>(RestClient -> Store Service)"]
         end
     end
 
-    WebCtrl -->|Invoque| InUseCase
-    KafkaConsumer -.->|Invoquera| InUseCase
+    WebCtrl -->|Invokes| InUseCase
+    KafkaConsumer -.->|Will invoke| InUseCase
     InUseCase <|.. AppService
     AppService --> DomainModel
-    AppService -->|Appelle| PersistPort
-    AppService -->|Appelle| StorePort
+    AppService -->|Calls| PersistPort
+    AppService -->|Calls| StorePort
     PersistAdapter ..|> PersistPort
     StoreHttpAdapter ..|> StorePort
     PersistAdapter --> SpringDataRepo
     PersistAdapter --> JpaEntity
 ```
 
-### La Règle de Dépendance (Dependency Inversion Principle)
-1. **Les couches extérieures dépendent des couches intérieures** : L'infrastructure connaît le domaine, mais le domaine **ne connaît jamais l'infrastructure**.
-2. **Aucune annotation de framework dans `domain/`** : Le domaine ne contient aucun `@Entity`, `@Table`, `@RestController`, `@Autowired`, ni aucune référence à Spring, Hibernate, Jackson ou Jakarta.
-3. **Inversion de contrôle via les Ports** : Le service applicatif communique avec l'extérieur uniquement au travers d'interfaces (les *Ports*). Les implémentations concrètes (les *Adaptateurs*) sont injectées à l'exécution par Spring.
+### The Dependency Inversion Principle
+1. **Outer layers depend on inner layers**: Infrastructure knows about the domain, but the domain **never knows about the infrastructure**.
+2. **Zero framework annotations in `domain/`**: The domain contains no `@Entity`, `@Table`, `@RestController`, `@Autowired`, nor any references to Spring, Hibernate, Jackson, or Jakarta.
+3. **Inversion of control via Ports**: The application service interacts with the external world exclusively through interfaces (*Ports*). Concrete implementations (*Adapters*) are injected at runtime by Spring.
 
 ---
 
-## 2. Découpage Modulaire des Packages
+## 2. Package Structure
 
-Le code source sous `src/main/java/fr/miage/collectivit/loyaltyservice/` respecte scrupuleusement l'arborescence hexagonale :
+Source code under `src/main/java/fr/miage/collectivit/loyaltyservice/` strictly adheres to the hexagonal layout:
 
 ```text
 fr.miage.collectivit.loyaltyservice/
-├── domain/                                      # 1. CŒUR MÉTIER PUR
+├── domain/                                      # 1. PURE BUSINESS CORE
 │   ├── model/
-│   │   └── MerchantLoyaltyRate.java             # Entité métier riche (calculs de conversion, validation)
+│   │   └── MerchantLoyaltyRate.java             # Rich domain entity (conversion calculations, validation)
 │   ├── port/
-│   │   ├── in/                                  # Ports primaires (cas d'utilisation exposés)
-│   │   │   ├── ConfigureLoyaltyRateUseCase.java
-│   │   │   └── GetLoyaltyRateUseCase.java
-│   │   └── out/                                 # Ports secondaires (contrats requis par le domaine)
+│   │   ├── in/                                  # Primary ports (exposed use cases / queries)
+│   │   │   ├── ConfigureMerchantLoyaltyRateUseCase.java
+│   │   │   └── GetMerchantLoyaltyRateQuery.java
+│   │   └── out/                                 # Secondary ports (contracts required by the domain)
 │   │       ├── MerchantLoyaltyRatePersistencePort.java
 │   │       └── StoreVerificationPort.java
-│   └── exception/                               # Exceptions métier pures
+│   └── exception/                               # Pure domain exceptions
+│       ├── InvalidLoyaltyRateException.java
+│       ├── MerchantLoyaltyRateNotFoundException.java
 │       ├── StoreAccessDeniedException.java
 │       └── StoreNotFoundException.java
 │
-├── application/                                 # 2. ORCHESTRATION APPLICATIVE
+├── application/                                 # 2. APPLICATION ORCHESTRATION
 │   └── service/
-│       └── PointsAccountService.java            # Service orchestrateur (prescrit par l'architecture ShopLoc)
+│       └── PointsAccountService.java            # Orchestration service (prescribed by ShopLoc architecture)
 │
-├── infrastructure/                              # 3. ADAPTATEURS TECHNIQUES
+├── infrastructure/                              # 3. TECHNICAL ADAPTERS
 │   └── adapter/
 │       ├── in/
-│       │   └── web/                             # Adaptateur primaire Web REST
+│       │   └── web/                             # Primary Web REST adapter
 │       │       ├── MerchantLoyaltyRateController.java
 │       │       ├── GlobalExceptionHandler.java
 │       │       └── dto/
 │       │           ├── MerchantLoyaltyRateRequest.java
 │       │           └── MerchantLoyaltyRateResponse.java
 │       └── out/
-│           ├── persistence/                     # Adaptateur secondaire Persistance JPA
+│           ├── persistence/                     # Secondary JPA persistence adapter
 │           │   ├── MerchantLoyaltyRatePersistenceAdapter.java
 │           │   ├── entity/
 │           │   │   └── MerchantLoyaltyRateJpaEntity.java
@@ -110,126 +112,128 @@ fr.miage.collectivit.loyaltyservice/
 │           │   │   └── MerchantLoyaltyRateMapper.java
 │           │   └── repository/
 │           │       └── SpringDataMerchantLoyaltyRateRepository.java
-│           └── rest/                            # Adaptateur secondaire Client HTTP
-│               └── StoreServiceHttpAdapter.java
+│           └── rest/                            # Secondary HTTP REST client adapter
+│               ├── StoreServiceHttpAdapter.java
+│               └── dto/
+│                   └── StoreDto.java
 │
-└── security/                                    # 4. SÉCURITÉ TRANSVERSALE
-    ├── RequiresRole.java                        # Annotation déclarative RBAC
-    ├── JwtAuthInterceptor.java                  # Intercepteur Spring MVC de validation JWT
-    ├── JwtKeyProvider.java                      # Gestion des clés asymétriques RS256 et HMAC
-    └── JwtValidatorService.java                 # Décodage, signature et liste de révocation
+└── security/                                    # 4. CROSS-CUTTING SECURITY
+    ├── RequiresRole.java                        # Declarative RBAC annotation
+    ├── JwtAuthInterceptor.java                  # Spring MVC JWT validation interceptor
+    ├── JwtKeyProvider.java                      # RS256 asymmetric and HMAC secret key provider
+    ├── JwtValidatorService.java                 # Decoding, verification, and revocation check
+    └── TokenRevocationService.java              # Blacklist / token revocation management
 ```
 
 ---
 
-## 3. Rôle de Chaque Composant
+## 3. Role of Each Component
 
-### 3.1. Le Domaine Métier (`domain/`)
-- **`MerchantLoyaltyRate`** : Modèle de domaine représentant le barème de fidélité d'un commerçant (`storeId`, `euroAmount`, `pointsReward`, `createdAt`, `updatedAt`).
-  - Encapsule les règles d'intégrité : un barème est obligatoirement lié à un magasin, `euroAmount > 0` avec 2 décimales maximum, et `pointsReward >= 1`.
-  - Fournit la méthode métier `calculatePoints(BigDecimal purchaseAmount)` pour déterminer instantanément les points gagnés pour un montant d'achat donné.
-  - Fournit un barème par défaut standardisé : `MerchantLoyaltyRate.defaultForStore(storeId)` (1,00 € = 1 point).
-- **`StoreAccessDeniedException` & `StoreNotFoundException`** : Exceptions métier indépendantes de tout code de statut HTTP.
+### 3.1. Business Domain (`domain/`)
+- **`MerchantLoyaltyRate`**: Domain model representing a merchant's loyalty rate (`storeId`, `euroAmount`, `pointsReward`, `createdAt`, `updatedAt`).
+  - Encapsulates integrity rules: a rate is strictly tied to a store, `euroAmount > 0` with up to 2 decimals, and `pointsReward >= 0.5` in steps of 0.5.
+  - Provides the core business method `calculatePointsForPurchase(BigDecimal purchaseAmount)` to calculate points earned with 0.5 half-point precision and floor rounding.
+  - Standard default rate factory: `MerchantLoyaltyRate.defaultForStore(storeId)` (1.00 € = 1.0 pt).
+- **Domain Exceptions**: Pure exceptions independent of HTTP status codes (`StoreNotFoundException`, `StoreAccessDeniedException`, `InvalidLoyaltyRateException`, `MerchantLoyaltyRateNotFoundException`).
 
-### 3.2. Les Ports (`domain/port/`)
-- **Ports Primaires (`port/in/`)** :
-  - `ConfigureLoyaltyRateUseCase` : Méthode `configureRate(Long storeId, BigDecimal euroAmount, Integer pointsReward, Long callerUserId, String callerRole)`.
-  - `GetLoyaltyRateUseCase` : Méthode `getRateByStoreId(Long storeId)`.
-- **Ports Secondaires (`port/out/`)** :
-  - `MerchantLoyaltyRatePersistencePort` : Contrat d'enregistrement et de lecture (`save`, `findByStoreId`, `existsByStoreId`, `deleteByStoreId`).
-  - `StoreVerificationPort` : Contrat de vérification de l'existence d'un commerce et de l'appartenance au commerçant connecté (`isStoreOwnedBy(storeId, userId)`, `storeExists(storeId)`).
+### 3.2. Ports (`domain/port/`)
+- **Primary Ports (`port/in/`)**:
+  - `ConfigureMerchantLoyaltyRateUseCase`: Method `configureRate(Long storeId, BigDecimal euroAmount, BigDecimal pointsReward, Long callerUserId, String callerRole)`.
+  - `GetMerchantLoyaltyRateQuery`: Method `getRateByStoreId(Long storeId)`.
+- **Secondary Ports (`port/out/`)**:
+  - `MerchantLoyaltyRatePersistencePort`: Persistence contract (`save`, `findByStoreId`, `existsByStoreId`, `deleteByStoreId`).
+  - `StoreVerificationPort`: Verification contract to validate store existence and merchant ownership (`isStoreOwnedBy(storeId, userId)`, `storeExists(storeId)`).
 
-### 3.3. L'Application Service (`application/service/`)
-- **`PointsAccountService`** :
-  - Cœur applicatif prescrit par le modèle ArchiMate d'architecture d'entreprise (`Applicatif Shop Loc.archimate`).
-  - Implémente `ConfigureLoyaltyRateUseCase` et `GetLoyaltyRateUseCase`.
-  - Applique les contrôles d'accès et d'autorisation BOLA (*Broken Object Level Authorization*) :
-    - Si l'appelant a le rôle `ADMIN`, la vérification de propriété est bypassée.
-    - Si l'appelant est un `MERCHANT`, le service sollicite `StoreVerificationPort` pour vérifier qu'il est bien le propriétaire légitime du magasin avant d'autoriser la modification.
-  - Invoque `MerchantLoyaltyRatePersistencePort` pour sauvegarder le barème.
-  - *Extension future* : Ce service traitera également les événements Kafka de paiement de commande pour créditer les comptes points des clients.
+### 3.3. Application Service (`application/service/`)
+- **`PointsAccountService`**:
+  - Application core prescribed by enterprise architecture models.
+  - Implements `ConfigureMerchantLoyaltyRateUseCase` and `GetMerchantLoyaltyRateQuery`.
+  - Enforces BOLA (*Broken Object Level Authorization*) controls:
+    - If caller has the `ADMIN` role, ownership verification is bypassed.
+    - If caller is a `MERCHANT`, the service queries `StoreVerificationPort` to confirm legitimate store ownership before allowing updates.
+  - Calls `MerchantLoyaltyRatePersistencePort` to persist changes.
+  - *Future extension*: Will process Kafka order-placed events to credit customer point accounts.
 
-### 3.4. Les Adaptateurs Secondaires (`infrastructure/adapter/out/`)
-- **Adaptateur de Persistance (`adapter/out/persistence/`)** :
-  - `MerchantLoyaltyRateJpaEntity` : Modèle relationnel mappé sur la table PostgreSQL `merchant_loyalty_rates` (avec timestamps automatiques `@PrePersist` / `@PreUpdate`).
-  - `MerchantLoyaltyRateMapper` : Composant Spring qui isole le domaine de l'entité JPA en convertissant de manière bidirectionnelle (`toDomain` / `toJpaEntity`).
-  - `MerchantLoyaltyRatePersistenceAdapter` : Implémente `MerchantLoyaltyRatePersistencePort` en déléguant au `SpringDataMerchantLoyaltyRateRepository`.
-- **Adaptateur Client HTTP REST (`adapter/out/rest/`)** :
-  - `StoreServiceHttpAdapter` : Implémente `StoreVerificationPort`.
-  - Utilise le client moderne Spring `RestClient` pour interroger l'endpoint interne de Store Service : `GET /v1/stores/{storeId}`.
-  - Traduit les réponses HTTP (404, 200 avec extraction de l'identifiant du propriétaire `ownerId`) en résultats booléens ou exceptions métier.
+### 3.4. Secondary Adapters (`infrastructure/adapter/out/`)
+- **Persistence Adapter (`adapter/out/persistence/`)**:
+  - `MerchantLoyaltyRateJpaEntity`: Relational model mapped to the PostgreSQL `merchant_loyalty_rates` table.
+  - `MerchantLoyaltyRateMapper`: Spring component isolating the domain from the JPA entity with bidirectional conversion (`toDomain` / `toJpaEntity`).
+  - `MerchantLoyaltyRatePersistenceAdapter`: Implements `MerchantLoyaltyRatePersistencePort` delegating to `SpringDataMerchantLoyaltyRateRepository`.
+- **HTTP REST Adapter (`adapter/out/rest/`)**:
+  - `StoreServiceHttpAdapter`: Implements `StoreVerificationPort`.
+  - Uses Spring `RestClient` to query Store Service: `GET /v1/stores/{storeId}`.
+  - Converts HTTP responses (404, 200 with owner ID) into boolean checks or domain exceptions.
 
-### 3.5. L'Adaptateur Primaire Web (`infrastructure/adapter/in/web/`)
-- **`MerchantLoyaltyRateController`** :
-  - Reçoit les requêtes HTTP JSON, valide les payloads d'entrée via Jakarta Bean Validation (`@Valid`, `@Positive`, `@Digits`).
-  - Extrait l'identité de l'appelant (`authenticatedUserDbId`) et son rôle injectés dans la requête par l'intercepteur de sécurité.
-  - Appelle les cas d'utilisation `GetLoyaltyRateUseCase` et `ConfigureLoyaltyRateUseCase`.
-  - Transforme le modèle de domaine en DTO de sortie `MerchantLoyaltyRateResponse`.
-- **`GlobalExceptionHandler`** :
-  - Attrape les exceptions du domaine et les traduit en réponses JSON normalisées avec le statut HTTP approprié :
-    - `StoreNotFoundException` -> HTTP 404 Not Found.
+### 3.5. Primary Web Adapter (`infrastructure/adapter/in/web/`)
+- **`MerchantLoyaltyRateController`**:
+  - Handles incoming JSON HTTP requests, validates payloads using Jakarta Bean Validation (`@Valid`, `@Positive`, `@Digits`).
+  - Extracts caller identity (`authenticatedUserDbId`) and role injected by security interceptor.
+  - Invokes `GetMerchantLoyaltyRateQuery` and `ConfigureMerchantLoyaltyRateUseCase`.
+  - Maps domain model to `MerchantLoyaltyRateResponse` DTO.
+- **`GlobalExceptionHandler`**:
+  - Catches domain and validation exceptions, mapping them to standard JSON error responses with appropriate HTTP statuses:
+    - `StoreNotFoundException`, `MerchantLoyaltyRateNotFoundException` -> HTTP 404 Not Found.
     - `StoreAccessDeniedException` -> HTTP 403 Forbidden.
-    - `MethodArgumentNotValidException` / `IllegalArgumentException` -> HTTP 400 Bad Request.
+    - `InvalidLoyaltyRateException`, `MethodArgumentNotValidException`, `HandlerMethodValidationException` -> HTTP 400 Bad Request.
 
 ---
 
-## 4. Diagramme de Séquence : Configuration d'un Barème (PUT)
+## 4. Sequence Diagram: Configuring a Rate (PUT)
 
-Ce diagramme illustre le cheminement complet d'une requête de configuration d'un barème de fidélité avec contrôle d'accès RBAC et protection BOLA :
+The following diagram illustrates the complete flow for updating a loyalty rate with RBAC security and BOLA protection:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Commercant as Commerçant (Client HTTP)
+    actor Merchant as Merchant (HTTP Client)
     participant Interceptor as JwtAuthInterceptor
     participant Controller as MerchantLoyaltyRateController
     participant Service as PointsAccountService
     participant StoreAdapter as StoreServiceHttpAdapter
-    participant StoreService as Store Service (Externe)
+    participant StoreService as Store Service (External)
     participant PersistAdapter as MerchantLoyaltyRatePersistenceAdapter
     participant DB as PostgreSQL (Loyalty DB)
 
-    Commercant->>Interceptor: PUT /v1/loyalty/merchants/10/rates (Bearer JWT)
-    Note over Interceptor: Vérifie signature JWT & rôle @RequiresRole("MERCHANT", "ADMIN")
-    Interceptor->>Controller: Requête authentifiée (userId=42, role=MERCHANT)
-    Controller->>Service: configureRate(storeId=10, 2.50€, 5pts, callerUserId=42, role=MERCHANT)
+    Merchant->>Interceptor: PUT /v1/loyalty/merchants/10/rates (Bearer JWT)
+    Note over Interceptor: Validates JWT signature & role @RequiresRole("MERCHANT", "ADMIN")
+    Interceptor->>Controller: Authenticated request (userId=42, role=MERCHANT)
+    Controller->>Service: configureRate(storeId=10, 2.50€, 5.0pts, callerUserId=42, role=MERCHANT)
     
     rect rgb(240, 248, 255)
-        Note over Service,StoreService: Contrôle BOLA (Vérification du propriétaire)
+        Note over Service,StoreService: BOLA Verification (Store Ownership Check)
         Service->>StoreAdapter: storeExists(10)
         StoreAdapter->>StoreService: GET /v1/stores/10
         StoreService-->>StoreAdapter: 200 OK (store data)
         StoreAdapter-->>Service: true
         Service->>StoreAdapter: isStoreOwnedBy(10, 42)
         StoreAdapter->>StoreService: GET /v1/stores/10
-        StoreService-->>StoreAdapter: 200 OK (ownerId: 42)
-        StoreAdapter-->>Service: true (Propriétaire confirmé)
+        StoreService-->>StoreAdapter: 200 OK (owner userId: 42)
+        StoreAdapter-->>Service: true (Ownership confirmed)
     end
 
     rect rgb(245, 255, 245)
-        Note over Service,DB: Persistance du Barème
+        Note over Service,DB: Rate Persistence
         Service->>PersistAdapter: save(MerchantLoyaltyRate)
         PersistAdapter->>PersistAdapter: Mapper toJpaEntity()
         PersistAdapter->>DB: INSERT/UPDATE merchant_loyalty_rates
-        DB-->>PersistAdapter: Entité sauvegardée
+        DB-->>PersistAdapter: Entity saved
         PersistAdapter->>PersistAdapter: Mapper toDomain()
-        PersistAdapter-->>Service: MerchantLoyaltyRate mis à jour
+        PersistAdapter-->>Service: Updated MerchantLoyaltyRate
     end
 
     Service-->>Controller: MerchantLoyaltyRate
-    Controller-->>Commercant: 200 OK (MerchantLoyaltyRateResponse JSON)
+    Controller-->>Merchant: 200 OK (MerchantLoyaltyRateResponse JSON)
 ```
 
 ---
 
-## 5. Avantages Concrets de ce Modèle
+## 5. Architectural Benefits
 
-1. **Testabilité Optimale et Rapide** :
-   - Les règles métier de conversion (`MerchantLoyaltyRateTest`) s'exécutent en mémoire pure en moins de 50 ms sans charger Spring ni de conteneur de test.
-   - Le service applicatif (`PointsAccountServiceTest`) se teste unitairement avec des mocks Mockito des seuls ports `StoreVerificationPort` et `MerchantLoyaltyRatePersistencePort`.
-   - Les adaptateurs Web (`MerchantLoyaltyRateControllerIntegrationTest`) et HTTP (`StoreServiceHttpAdapterTest`) sont testés indépendamment.
-2. **Indépendance vis-à-vis des Fournisseurs d'Infrastructure** :
-   - Si la persistance doit migrer vers une base NoSQL ou si la vérification de magasin passe par un cache distribué Redis ou un bus Kafka, seul l'adaptateur secondaire concerné change ; le domaine et les contrôleurs restent strictement intacts.
-3. **Sécurité dès la Conception (Security by Design)** :
-   - L'isolation stricte des cas d'utilisation garantit qu'aucun commerçant ne peut modifier le barème d'un magasin tiers sans passer par la barrière de contrôle BOLA orchestrée dans le service applicatif.
-
+1. **Fast, Isolated Testing**:
+   - Domain business rules (`MerchantLoyaltyRateTest`) execute purely in-memory in under 50 ms without loading Spring or external containers.
+   - Application service (`PointsAccountServiceTest`) is tested in isolation with Mockito mocks for `StoreVerificationPort` and `MerchantLoyaltyRatePersistencePort`.
+   - Web adapters (`MerchantLoyaltyRateControllerIntegrationTest`) and REST adapter (`StoreServiceHttpAdapterTest`) are verified with targeted integration tests.
+2. **Infrastructure Independence**:
+   - Swapping persistence to another store or using Redis/Kafka for store verification only requires changing secondary adapters; domain models and controllers remain completely untouched.
+3. **Security by Design**:
+   - Strict use-case orchestration guarantees that no merchant can modify a competitor's rate without passing through BOLA checks in the application service.

@@ -1,8 +1,8 @@
 package fr.miage.collectivit.loyaltyservice.domain.exception;
 
 /**
- * Exception levée lorsqu'un utilisateur tente d'accéder ou de modifier un magasin sans en être
- * propriétaire.
+ * Exception thrown when an authenticated user attempts to access or modify a store without owning
+ * it.
  */
 public class StoreAccessDeniedException extends RuntimeException {
 

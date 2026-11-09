@@ -13,7 +13,7 @@ import org.springframework.boot.jdbc.DataSourceBuilder;
 class FlywayMigrationIntegrationTest {
 
   @Test
-  @DisplayName("La migration Flyway V1 doit s'exécuter avec succès sur la base")
+  @DisplayName("Flyway V1 migration should execute successfully on the database")
   void shouldExecuteFlywayMigrationSuccessfully() {
     DataSource dataSource =
         DataSourceBuilder.create()

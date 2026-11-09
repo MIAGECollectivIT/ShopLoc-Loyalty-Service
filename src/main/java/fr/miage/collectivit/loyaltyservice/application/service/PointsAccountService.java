@@ -9,16 +9,18 @@ import fr.miage.collectivit.loyaltyservice.domain.port.in.GetMerchantLoyaltyRate
 import fr.miage.collectivit.loyaltyservice.domain.port.out.MerchantLoyaltyRatePersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import java.math.BigDecimal;
-import lombok.RequiredArgsConstructor;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Service applicatif orchestrant les cas d'utilisation liés aux comptes de fidélité et aux barèmes
- * marchands (Composant PointsAccountService prescrit par le schéma d'architecture).
+ * Application service orchestrating loyalty account and merchant rate use cases
+ * (PointsAccountService component prescribed by the architecture model).
  */
 @Service
-@RequiredArgsConstructor
 public class PointsAccountService
     implements ConfigureMerchantLoyaltyRateUseCase, GetMerchantLoyaltyRateQuery {
 
@@ -26,30 +28,75 @@ public class PointsAccountService
 
   private final MerchantLoyaltyRatePersistencePort persistencePort;
   private final StoreVerificationPort storeVerificationPort;
+  private final TransactionTemplate transactionTemplate;
+
+  @Autowired
+  public PointsAccountService(
+      MerchantLoyaltyRatePersistencePort persistencePort,
+      StoreVerificationPort storeVerificationPort,
+      TransactionTemplate transactionTemplate) {
+    this.persistencePort = persistencePort;
+    this.storeVerificationPort = storeVerificationPort;
+    this.transactionTemplate = transactionTemplate;
+  }
+
+  public PointsAccountService(
+      MerchantLoyaltyRatePersistencePort persistencePort,
+      StoreVerificationPort storeVerificationPort) {
+    this(persistencePort, storeVerificationPort, null);
+  }
 
   @Override
-  @Transactional
   public MerchantLoyaltyRate configureRate(
       Long storeId,
       BigDecimal euroAmount,
       BigDecimal pointsReward,
       Long callerUserId,
       String callerRole) {
+    // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
+    // network I/O)
+    // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
+    // network I/O)
     validateStoreOwnership(storeId, callerUserId, callerRole);
 
-    return persistencePort
-        .findByStoreId(storeId)
-        .map(
-            existing -> {
-              existing.updateRates(euroAmount, pointsReward);
-              return persistencePort.save(existing);
-            })
-        .orElseGet(
-            () -> {
-              MerchantLoyaltyRate newRate =
-                  new MerchantLoyaltyRate(storeId, euroAmount, pointsReward);
-              return persistencePort.save(newRate);
-            });
+    // Phase 2: Transactional read/write persistence with concurrency recovery
+    return executeInTransaction(() -> persistRate(storeId, euroAmount, pointsReward));
+  }
+
+  private <T> T executeInTransaction(Supplier<T> action) {
+    if (transactionTemplate != null) {
+      return transactionTemplate.execute(status -> action.get());
+    }
+    return action.get();
+  }
+
+  private MerchantLoyaltyRate persistRate(
+      Long storeId, BigDecimal euroAmount, BigDecimal pointsReward) {
+    try {
+      return persistencePort
+          .findByStoreId(storeId)
+          .map(
+              existing -> {
+                existing.updateRates(euroAmount, pointsReward);
+                return persistencePort.save(existing);
+              })
+          .orElseGet(
+              () -> {
+                MerchantLoyaltyRate newRate =
+                    new MerchantLoyaltyRate(storeId, euroAmount, pointsReward);
+                return persistencePort.save(newRate);
+              });
+    } catch (DataIntegrityViolationException ex) {
+      // Concurrency recovery: another transaction concurrently created the rate for this store
+      return persistencePort
+          .findByStoreId(storeId)
+          .map(
+              existing -> {
+                existing.updateRates(euroAmount, pointsReward);
+                return persistencePort.save(existing);
+              })
+          .orElseThrow(() -> ex);
+    }
   }
 
   @Override
@@ -66,14 +113,16 @@ public class PointsAccountService
     }
     if (callerUserId == null) {
       throw new StoreAccessDeniedException(
-          "Identifiant utilisateur manquant pour la modification du commerce " + storeId);
+          "Missing user identifier for modifying store " + storeId);
     }
-    if (!storeVerificationPort.storeExists(storeId)) {
-      throw new StoreNotFoundException(storeId);
-    }
-    if (!storeVerificationPort.isStoreOwnedBy(storeId, callerUserId)) {
+    Long ownerId =
+        storeVerificationPort
+            .findStoreOwnerId(storeId)
+            .orElseThrow(() -> new StoreNotFoundException(storeId));
+
+    if (!ownerId.equals(callerUserId)) {
       throw new StoreAccessDeniedException(
-          "Accès refusé : vous n'êtes pas le commerçant propriétaire du commerce " + storeId);
+          "Access denied: you are not the owner of store " + storeId);
     }
   }
 }
