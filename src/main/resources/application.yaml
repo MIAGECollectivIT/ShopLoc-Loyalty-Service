@@ -4,6 +4,33 @@ server:
 spring:
   application:
     name: loyalty-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:shoploc_loyalty_dev}
+    username: ${DB_USER:devuser}
+    password: ${DB_PASSWORD:devpassword}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration${FLYWAY_ADDITIONAL_LOCATIONS:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
 
 springdoc:
   api-docs:
@@ -39,7 +66,13 @@ application:
     jwt:
       header-name: "Authorization"
       token-prefix: "Bearer "
-      secret-key: "${JWT_SECRET:dGhpc2lzYXZlcnlzZWNyZXRqd3Rsb3lhbHR5c2VydmljZWtleTEyMzQ1Ng==}"
+      public-key: "${JWT_PUBLIC_KEY:}"
       issuer: "shoploc-auth-service"
       expiration-ms: 86400000
     description: "Authenticate using a JWT Bearer token. Enter your token prefixed with 'Bearer ' or simply the token value."
+
+services:
+  users:
+    url: ${USERS_SERVICE_URL:http://users-service:8080}
+  store-service:
+    url: ${STORE_SERVICE_URL:http://store-service:8080}

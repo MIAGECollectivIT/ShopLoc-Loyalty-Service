@@ -1,0 +1,19 @@
+meta {
+  name: 01 - Consulter le bareme d un commerce (Public) - 200
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.storeId: eq {{storeId}}
+  res.body.euroAmount: isDefined
+  res.body.pointsReward: isDefined
+}
+

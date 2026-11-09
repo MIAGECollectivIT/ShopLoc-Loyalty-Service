@@ -15,9 +15,10 @@
     <!-- Performance rules -->
     <rule ref="category/java/performance.xml"/>
 
-    <!-- Design rules: exclude UseUtilityClass (Spring Boot main class) and unconfigured LoosePackageCoupling -->
+    <!-- Design rules: exclude UseUtilityClass, LoosePackageCoupling, and DataClass for domain models/DTOs -->
     <rule ref="category/java/design.xml">
         <exclude name="UseUtilityClass"/>
         <exclude name="LoosePackageCoupling"/>
+        <exclude name="DataClass"/>
     </rule>
 </ruleset>

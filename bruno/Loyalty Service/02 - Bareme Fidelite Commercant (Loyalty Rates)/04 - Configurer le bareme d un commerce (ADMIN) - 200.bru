@@ -1,0 +1,34 @@
+meta {
+  name: 04 - Configurer le bareme d un commerce (ADMIN) - 200
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 2.50,
+    "pointsReward": 5
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.storeId: eq {{storeId}}
+  res.body.euroAmount: eq 2.50
+  res.body.pointsReward: eq 5
+}
+

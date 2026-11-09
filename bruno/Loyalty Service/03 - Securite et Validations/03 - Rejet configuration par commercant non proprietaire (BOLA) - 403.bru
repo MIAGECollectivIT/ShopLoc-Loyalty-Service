@@ -1,0 +1,32 @@
+meta {
+  name: 03 - Rejet configuration par commercant non proprietaire (BOLA) - 403
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/9999/rates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 2.00,
+    "pointsReward": 2
+  }
+}
+
+assert {
+  res.status: eq 403
+  res.body.message: isDefined
+}
+

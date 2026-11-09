@@ -21,7 +21,7 @@ class LoyaltyStatusControllerTest {
   @Test
   void testGetStatusReturnsUp() throws Exception {
     mockMvc
-        .perform(get("/api/v1/loyalty/status"))
+        .perform(get("/v1/loyalty/status"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("UP"))
         .andExpect(jsonPath("$.service").value("loyalty-service"));

@@ -1,0 +1,79 @@
+package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import fr.miage.collectivit.loyaltyservice.domain.model.MerchantLoyaltyRate;
+import java.math.BigDecimal;
+import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Transactional;
+
+@SpringBootTest
+@Transactional
+@DisplayName("Persistence Adapter - MerchantLoyaltyRatePersistenceAdapter Integration Test")
+class MerchantLoyaltyRatePersistenceAdapterIntegrationTest {
+
+  @Autowired private MerchantLoyaltyRatePersistenceAdapter persistenceAdapter;
+
+  @Test
+  @DisplayName("Should save and retrieve loyalty rate via adapter")
+  void shouldSaveAndFindByStoreIdViaAdapter() {
+    MerchantLoyaltyRate rate =
+        new MerchantLoyaltyRate(10L, new BigDecimal("2.50"), new BigDecimal("5.0"));
+
+    MerchantLoyaltyRate saved = persistenceAdapter.save(rate);
+
+    assertThat(saved.getId()).isNotNull();
+    assertThat(saved.getCreatedAt()).isNotNull();
+    assertThat(saved.getUpdatedAt()).isNotNull();
+
+    Optional<MerchantLoyaltyRate> found = persistenceAdapter.findByStoreId(10L);
+    assertThat(found).isPresent();
+    assertThat(found.get().getStoreId()).isEqualTo(10L);
+    assertThat(found.get().getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.50"));
+    assertThat(found.get().getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
+  }
+
+  @Test
+  @DisplayName("Should reject duplicate storeId via adapter (database uniqueness constraint)")
+  void shouldRejectDuplicateStoreIdViaAdapter() {
+    MerchantLoyaltyRate rate1 =
+        new MerchantLoyaltyRate(42L, new BigDecimal("1.00"), new BigDecimal("1.0"));
+    persistenceAdapter.save(rate1);
+
+    MerchantLoyaltyRate rate2 =
+        new MerchantLoyaltyRate(42L, new BigDecimal("5.00"), new BigDecimal("10.0"));
+
+    assertThatThrownBy(() -> persistenceAdapter.save(rate2))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  @DisplayName("Should check existence by storeId via adapter")
+  void shouldCheckExistenceByStoreIdViaAdapter() {
+    assertThat(persistenceAdapter.existsByStoreId(99L)).isFalse();
+
+    MerchantLoyaltyRate rate =
+        new MerchantLoyaltyRate(99L, new BigDecimal("3.00"), new BigDecimal("2.0"));
+    persistenceAdapter.save(rate);
+
+    assertThat(persistenceAdapter.existsByStoreId(99L)).isTrue();
+  }
+
+  @Test
+  @DisplayName("Should delete rate by storeId via adapter")
+  void shouldDeleteByStoreIdViaAdapter() {
+    MerchantLoyaltyRate rate =
+        new MerchantLoyaltyRate(100L, new BigDecimal("1.00"), new BigDecimal("1.0"));
+    persistenceAdapter.save(rate);
+
+    persistenceAdapter.deleteByStoreId(100L);
+
+    assertThat(persistenceAdapter.findByStoreId(100L)).isEmpty();
+  }
+}

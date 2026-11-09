@@ -1,0 +1,27 @@
+meta {
+  name: 01 - Rejet configuration sans token - 401
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/merchants/{{storeId}}/rates
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "euroAmount": 2.00,
+    "pointsReward": 2
+  }
+}
+
+assert {
+  res.status: eq 401
+}
+
