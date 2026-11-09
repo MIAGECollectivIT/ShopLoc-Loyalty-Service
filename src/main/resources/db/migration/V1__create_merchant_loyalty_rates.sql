@@ -11,3 +11,5 @@ CREATE TABLE IF NOT EXISTS merchant_loyalty_rates (
     CONSTRAINT chk_merchant_loyalty_rates_points_reward CHECK (points_reward >= 0.5)
 );
 
+CREATE INDEX IF NOT EXISTS idx_merchant_loyalty_rates_store_id ON merchant_loyalty_rates (store_id);
+
