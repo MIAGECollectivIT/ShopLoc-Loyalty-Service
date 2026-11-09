@@ -27,12 +27,6 @@ public record MerchantLoyaltyRateResponse(
   }
 
   public static MerchantLoyaltyRateResponse defaultRate(Long storeId) {
-    return new MerchantLoyaltyRateResponse(
-        null,
-        storeId,
-        MerchantLoyaltyRate.DEFAULT_EURO_AMOUNT,
-        MerchantLoyaltyRate.DEFAULT_POINTS_REWARD,
-        null,
-        null);
+    return fromDomain(MerchantLoyaltyRate.defaultForStore(storeId));
   }
 }

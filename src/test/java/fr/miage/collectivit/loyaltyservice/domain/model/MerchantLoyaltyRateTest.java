@@ -27,6 +27,17 @@ class MerchantLoyaltyRateTest {
   }
 
   @Test
+  @DisplayName("Should create standard default rate for store (1€ = 1 pt)")
+  void shouldCreateDefaultForStore() {
+    MerchantLoyaltyRate defaultRate = MerchantLoyaltyRate.defaultForStore(50L);
+
+    assertThat(defaultRate.getStoreId()).isEqualTo(50L);
+    assertThat(defaultRate.getEuroAmount()).isEqualByComparingTo(new BigDecimal("1.00"));
+    assertThat(defaultRate.getPointsReward()).isEqualByComparingTo(new BigDecimal("1.0"));
+    assertThat(defaultRate.getId()).isNull();
+  }
+
+  @Test
   @DisplayName("Should reject zero or negative euro amount")
   void shouldRejectZeroOrNegativeEuroAmount() {
     assertThatThrownBy(() -> new MerchantLoyaltyRate(1L, BigDecimal.ZERO, new BigDecimal("1.0")))

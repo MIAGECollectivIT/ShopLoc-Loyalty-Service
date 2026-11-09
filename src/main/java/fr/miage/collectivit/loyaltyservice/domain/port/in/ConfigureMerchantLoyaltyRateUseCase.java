@@ -22,13 +22,4 @@ public interface ConfigureMerchantLoyaltyRateUseCase {
       BigDecimal pointsReward,
       Long callerUserId,
       String callerRole);
-
-  /**
-   * Convenience overload for rate configuration without caller authorization check (system/admin
-   * mode).
-   */
-  default MerchantLoyaltyRate configureRate(
-      Long storeId, BigDecimal euroAmount, BigDecimal pointsReward) {
-    return configureRate(storeId, euroAmount, pointsReward, null, "ADMIN");
-  }
 }
