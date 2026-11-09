@@ -73,14 +73,6 @@ public class GlobalExceptionHandler {
         HttpStatus.CONFLICT, "A database conflict occurred while updating loyalty rate for store.");
   }
 
-  @ExceptionHandler(DataIntegrityViolationException.class)
-  public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
-      DataIntegrityViolationException ex) {
-    return buildResponse(
-        HttpStatus.CONFLICT,
-        "A database conflict occurred while updating loyalty rate for store.");
-  }
-
   private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
     Map<String, Object> body = new HashMap<>();
     body.put("timestamp", Instant.now().toString());

@@ -35,4 +35,3 @@ class GlobalExceptionHandlerTest {
         .isEqualTo("A database conflict occurred while updating loyalty rate for store.");
   }
 }
-

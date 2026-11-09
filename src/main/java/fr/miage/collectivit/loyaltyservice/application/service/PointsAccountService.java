@@ -55,7 +55,8 @@ public class PointsAccountService
       String callerRole) {
     // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
     // network I/O)
-    // Phase 1: External validation (out-of-transaction to avoid holding DB connections during network I/O)
+    // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
+    // network I/O)
     validateStoreOwnership(storeId, callerUserId, callerRole);
 
     // Phase 2: Transactional read/write persistence with concurrency recovery
