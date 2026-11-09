@@ -134,4 +134,75 @@ class PointsAccountServiceTest {
         .isInstanceOf(MerchantLoyaltyRateNotFoundException.class)
         .hasMessageContaining("999");
   }
+
+  @Test
+  @DisplayName(
+      "Should recover and retry update when concurrent creation causes DataIntegrityViolationException")
+  void shouldRecoverAndRetryWhenConcurrentCreationCausesDataIntegrityViolation() {
+    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
+
+    MerchantLoyaltyRate concurrentRate =
+        new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"));
+
+    // 1st find: returns empty. 2nd find (after conflict): returns the concurrently created rate.
+    when(persistencePort.findByStoreId(10L))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(concurrentRate));
+
+    // 1st save: throws DataIntegrityViolationException. 2nd save (recovery): succeeds.
+    when(persistencePort.save(any(MerchantLoyaltyRate.class)))
+        .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    MerchantLoyaltyRate result =
+        service.configureRate(10L, new BigDecimal("2.50"), new BigDecimal("5.0"), 42L, "MERCHANT");
+
+    assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.50"));
+    assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
+  }
+
+  @Test
+  @DisplayName("Should propagate DataIntegrityViolationException when concurrency recovery fails")
+  void shouldPropagateDataIntegrityViolationWhenRecoveryFails() {
+    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
+    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
+    when(persistencePort.save(any(MerchantLoyaltyRate.class)))
+        .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
+
+    assertThatThrownBy(
+            () ->
+                service.configureRate(
+                    10L, new BigDecimal("2.50"), new BigDecimal("5.0"), 42L, "MERCHANT"))
+        .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+  }
+
+  @Test
+  @DisplayName(
+      "Should execute persistence inside TransactionTemplate when TransactionTemplate is provided")
+  void shouldExecutePersistenceInsideTransactionTemplate() {
+    org.springframework.transaction.support.TransactionTemplate mockTemplate =
+        org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
+    when(mockTemplate.execute(any()))
+        .thenAnswer(
+            invocation -> {
+              org.springframework.transaction.support.TransactionCallback<?> callback =
+                  invocation.getArgument(0);
+              return callback.doInTransaction(null);
+            });
+
+    PointsAccountService serviceWithTx =
+        new PointsAccountService(persistencePort, storeVerificationPort, mockTemplate);
+
+    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
+    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
+    when(persistencePort.save(any(MerchantLoyaltyRate.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    MerchantLoyaltyRate result =
+        serviceWithTx.configureRate(
+            10L, new BigDecimal("3.00"), new BigDecimal("6.0"), 42L, "MERCHANT");
+
+    assertThat(result).isNotNull();
+    verify(mockTemplate).execute(any());
+  }
 }

@@ -7,6 +7,7 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundExcepti
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -63,6 +64,21 @@ public class GlobalExceptionHandler {
   public ResponseEntity<Map<String, Object>> handleMerchantLoyaltyRateNotFound(
       MerchantLoyaltyRateNotFoundException ex) {
     return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+      DataIntegrityViolationException ex) {
+    return buildResponse(
+        HttpStatus.CONFLICT, "A database conflict occurred while updating loyalty rate for store.");
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+      DataIntegrityViolationException ex) {
+    return buildResponse(
+        HttpStatus.CONFLICT,
+        "A database conflict occurred while updating loyalty rate for store.");
   }
 
   private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
