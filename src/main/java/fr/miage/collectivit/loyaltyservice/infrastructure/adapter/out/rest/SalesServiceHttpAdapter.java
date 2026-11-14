@@ -41,19 +41,31 @@ public class SalesServiceHttpAdapter implements SalesTransactionPort {
   private static final int READ_TIMEOUT_SECONDS = 3;
 
   private final RestClient restClient;
+  private final fr.miage.collectivit.loyaltyservice.security.ServiceTokenProvider
+      serviceTokenProvider;
 
   @Autowired
   public SalesServiceHttpAdapter(
-      @Value("${services.sales-service.url:http://sales-service:8080}") String salesServiceUrl) {
+      @Value("${services.sales-service.url:http://sales-service:8080}") String salesServiceUrl,
+      @Autowired(required = false)
+          fr.miage.collectivit.loyaltyservice.security.ServiceTokenProvider serviceTokenProvider) {
     this(
         RestClient.builder()
             .baseUrl(salesServiceUrl)
             .requestFactory(createClientHttpRequestFactory())
-            .build());
+            .build(),
+        serviceTokenProvider);
   }
 
   SalesServiceHttpAdapter(RestClient restClient) {
+    this(restClient, null);
+  }
+
+  SalesServiceHttpAdapter(
+      RestClient restClient,
+      fr.miage.collectivit.loyaltyservice.security.ServiceTokenProvider serviceTokenProvider) {
     this.restClient = restClient;
+    this.serviceTokenProvider = serviceTokenProvider;
   }
 
   @SuppressWarnings("PMD.CloseResource")
@@ -148,6 +160,12 @@ public class SalesServiceHttpAdapter implements SalesTransactionPort {
       if (authHeader != null
           && authHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
         return Optional.of(authHeader.substring(BEARER_PREFIX.length()).trim());
+      }
+    }
+    if (serviceTokenProvider != null) {
+      String serviceToken = serviceTokenProvider.generateAdminServiceToken();
+      if (serviceToken != null && !serviceToken.isBlank()) {
+        return Optional.of(serviceToken);
       }
     }
     return Optional.empty();
