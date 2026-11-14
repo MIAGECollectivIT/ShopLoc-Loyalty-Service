@@ -35,3 +35,5 @@ services:
     url: http://localhost:8089
   store-service:
     url: http://localhost:8089
+  sales-service:
+    url: http://localhost:8089
