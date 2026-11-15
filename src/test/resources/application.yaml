@@ -14,7 +14,6 @@ spring:
   flyway:
     enabled: false
   kafka:
-    bootstrap-servers: localhost:9092
     listener:
       auto-startup: false
 
@@ -38,4 +37,6 @@ services:
   users:
     url: http://localhost:8089
   store-service:
+    url: http://localhost:8089
+  sales-service:
     url: http://localhost:8089
