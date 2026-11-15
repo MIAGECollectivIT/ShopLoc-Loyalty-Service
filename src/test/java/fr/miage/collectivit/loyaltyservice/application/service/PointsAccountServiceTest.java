@@ -288,6 +288,40 @@ class PointsAccountServiceTest {
   }
 
   @Test
+  @DisplayName("Should use store name from StoreVerificationPort when available in transaction record")
+  void shouldUseStoreNameFromStoreVerificationPortWhenAvailable() {
+    Instant now = Instant.parse("2026-11-15T12:00:00Z");
+    PhysicalPaymentCompletedEvent event =
+        new PhysicalPaymentCompletedEvent(
+            "TX-PHY-STORE-NAME",
+            10L,
+            "k7P9xQ2",
+            "user-123",
+            new BigDecimal("20.00"),
+            "EUR",
+            now);
+
+    when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-STORE-NAME")).thenReturn(false);
+    when(persistencePort.findByStoreId(10L))
+        .thenReturn(Optional.of(new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"))));
+    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Burger King Lille"));
+
+    UserPointsAccount existingAccount =
+        new UserPointsAccount(1L, "user-123", "k7P9xQ2", new BigDecimal("10.0"), now.minusSeconds(3600), now.minusSeconds(3600));
+    when(userPointsPersistencePort.findAccountByUserId("user-123")).thenReturn(Optional.of(existingAccount));
+    when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.processPhysicalPayment(event);
+
+    ArgumentCaptor<PointsTransaction> txCaptor = ArgumentCaptor.forClass(PointsTransaction.class);
+    verify(userPointsPersistencePort).saveTransaction(org.mockito.ArgumentMatchers.eq(1L), txCaptor.capture());
+    PointsTransaction savedTx = txCaptor.getValue();
+    assertThat(savedTx.storeName()).isEqualTo("Burger King Lille");
+    assertThat(savedTx.description()).contains("Burger King Lille");
+  }
+
+  @Test
   @DisplayName(
       "Should use store name from StoreVerificationPort when available in transaction record")
   void shouldUseStoreNameFromStoreVerificationPortWhenAvailable() {
