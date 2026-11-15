@@ -6,6 +6,7 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.SalesServiceUnavaila
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.UserActivityAccessDeniedException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UserPointsAccessDeniedException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,7 +49,11 @@ public class GlobalExceptionHandler {
     return ResponseEntity.badRequest().body(body);
   }
 
-  @ExceptionHandler({StoreAccessDeniedException.class, UserActivityAccessDeniedException.class})
+  @ExceptionHandler({
+    StoreAccessDeniedException.class,
+    UserActivityAccessDeniedException.class,
+    UserPointsAccessDeniedException.class
+  })
   public ResponseEntity<Map<String, Object>> handleAccessDeniedExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
   }
