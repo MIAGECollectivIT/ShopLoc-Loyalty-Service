@@ -8,7 +8,7 @@ import fr.miage.collectivit.loyaltyservice.domain.port.in.EvaluateAndApplyVfpSta
 import fr.miage.collectivit.loyaltyservice.domain.port.in.EvaluateUserActivityUseCase;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetUserVfpStatusQuery;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.UserVfpStatusResponse;
-import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
+import fr.miage.collectivit.loyaltyservice.security.CallerAccessGuard;
 import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -44,6 +44,7 @@ public class UserVfpStatusController {
   private final GetUserVfpStatusQuery getUserVfpStatusQuery;
   private final EvaluateAndApplyVfpStatusUseCase evaluateAndApplyVfpStatusUseCase;
   private final EvaluateUserActivityUseCase evaluateUserActivityUseCase;
+  private final CallerAccessGuard callerAccessGuard;
 
   @GetMapping("/{userId}/vfp-status")
   @RequiresRole({"CLIENT", "ADMIN"})
@@ -72,7 +73,12 @@ public class UserVfpStatusController {
           @NotBlank(message = "userId must not be blank")
           String userId,
       HttpServletRequest request) {
-    verifyCallerAuthorization(userId, request);
+    callerAccessGuard.verifyUserAccess(
+        userId,
+        request,
+        () ->
+            new UserActivityAccessDeniedException(
+                "Access denied: You can only view your own VFP status."));
 
     String cleanUserId = userId.trim();
     UserActivityEvaluation evaluation = evaluateUserActivityUseCase.evaluateActivity(cleanUserId);
@@ -84,21 +90,5 @@ public class UserVfpStatusController {
 
     return ResponseEntity.ok(
         UserVfpStatusResponse.fromDomain(status, evaluation.getTransactionCount()));
-  }
-
-  private void verifyCallerAuthorization(String userId, HttpServletRequest request) {
-    String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
-    String callerUserId = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID);
-    Long callerUserDbId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
-
-    boolean isAdmin = "ADMIN".equalsIgnoreCase(callerRole);
-    boolean isSelf =
-        (callerUserId != null && callerUserId.equalsIgnoreCase(userId))
-            || (callerUserDbId != null && String.valueOf(callerUserDbId).equals(userId));
-
-    if (!isAdmin && !isSelf) {
-      throw new UserActivityAccessDeniedException(
-          "Access denied: You can only view your own VFP status.");
-    }
   }
 }

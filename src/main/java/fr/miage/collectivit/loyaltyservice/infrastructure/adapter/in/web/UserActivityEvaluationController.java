@@ -5,7 +5,7 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.UserActivityAccessDe
 import fr.miage.collectivit.loyaltyservice.domain.model.UserActivityEvaluation;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.EvaluateUserActivityUseCase;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.UserActivityEvaluationResponse;
-import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
+import fr.miage.collectivit.loyaltyservice.security.CallerAccessGuard;
 import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserActivityEvaluationController {
 
   private final EvaluateUserActivityUseCase evaluateUserActivityUseCase;
+  private final CallerAccessGuard callerAccessGuard;
 
   @GetMapping("/{userId}/activity-evaluation")
   @RequiresRole({"CLIENT", "ADMIN"})
@@ -68,19 +69,12 @@ public class UserActivityEvaluationController {
           @NotBlank(message = "userId must not be blank")
           String userId,
       HttpServletRequest request) {
-    String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
-    String callerUserId = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID);
-    Long callerUserDbId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
-
-    boolean isAdmin = "ADMIN".equalsIgnoreCase(callerRole);
-    boolean isSelf =
-        (callerUserId != null && callerUserId.equalsIgnoreCase(userId))
-            || (callerUserDbId != null && String.valueOf(callerUserDbId).equals(userId));
-
-    if (!isAdmin && !isSelf) {
-      throw new UserActivityAccessDeniedException(
-          "Access denied: You can only view your own activity evaluation.");
-    }
+    callerAccessGuard.verifyUserAccess(
+        userId,
+        request,
+        () ->
+            new UserActivityAccessDeniedException(
+                "Access denied: You can only view your own activity evaluation."));
 
     UserActivityEvaluation evaluation = evaluateUserActivityUseCase.evaluateActivity(userId);
     return ResponseEntity.ok(UserActivityEvaluationResponse.fromDomain(evaluation));
