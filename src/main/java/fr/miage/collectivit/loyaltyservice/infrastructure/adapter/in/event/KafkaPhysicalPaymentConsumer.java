@@ -7,9 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Driving adapter consuming physical payment completed events from Kafka (SLE-173).
- */
+/** Driving adapter consuming physical payment completed events from Kafka (SLE-173). */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -22,7 +20,9 @@ public class KafkaPhysicalPaymentConsumer {
       groupId = "${spring.kafka.consumer.group-id:loyalty-service-group}")
   @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.LawOfDemeter"})
   public void onPhysicalPaymentCompleted(PhysicalPaymentCompletedEvent event) {
-    if (event == null || event.transactionReference() == null || event.transactionReference().isBlank()) {
+    if (event == null
+        || event.transactionReference() == null
+        || event.transactionReference().isBlank()) {
       if (log.isWarnEnabled()) {
         log.warn("Received null or blank PhysicalPaymentCompletedEvent via Kafka, ignoring");
       }
@@ -48,7 +48,7 @@ public class KafkaPhysicalPaymentConsumer {
             ex.getMessage(),
             ex);
       }
+      throw ex;
     }
   }
 }
-

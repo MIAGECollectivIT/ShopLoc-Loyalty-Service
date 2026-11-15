@@ -1,6 +1,6 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -50,21 +50,15 @@ class KafkaPhysicalPaymentConsumerTest {
 
     PhysicalPaymentCompletedEvent blankRefEvent =
         new PhysicalPaymentCompletedEvent(
-            "   ",
-            10L,
-            "k7P9xQ2",
-            "user-123",
-            new BigDecimal("25.00"),
-            "EUR",
-            Instant.now());
+            "   ", 10L, "k7P9xQ2", "user-123", new BigDecimal("25.00"), "EUR", Instant.now());
     consumer.onPhysicalPaymentCompleted(blankRefEvent);
 
     verify(processPhysicalPaymentLoyaltyUseCase, never()).processPhysicalPayment(any());
   }
 
   @Test
-  @DisplayName("Should safely catch exceptions without failing listener thread")
-  void shouldSafelyCatchExceptionsWithoutFailingListener() {
+  @DisplayName("Should propagate exceptions to enable Kafka error handler retry and DLQ recovery")
+  void shouldPropagateExceptionsToEnableDlqAndRetryHandling() {
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
             "TX-ERR-500",
@@ -79,7 +73,8 @@ class KafkaPhysicalPaymentConsumerTest {
         .when(processPhysicalPaymentLoyaltyUseCase)
         .processPhysicalPayment(event);
 
-    assertThatCode(() -> consumer.onPhysicalPaymentCompleted(event)).doesNotThrowAnyException();
+    assertThatThrownBy(() -> consumer.onPhysicalPaymentCompleted(event))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("Simulated error in persistence");
   }
 }
-

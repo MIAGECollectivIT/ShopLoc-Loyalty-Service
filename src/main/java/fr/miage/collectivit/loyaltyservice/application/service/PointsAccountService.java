@@ -33,6 +33,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Slf4j
 @Service
+@SuppressWarnings({"PMD.GodClass", "PMD.TooManyMethods"})
 public class PointsAccountService
     implements ConfigureMerchantLoyaltyRateUseCase,
         GetMerchantLoyaltyRateQuery,
@@ -167,103 +168,146 @@ public class PointsAccountService
     }
 
     String txRef = event.transactionReference().trim();
-    if (userPointsPersistencePort != null && userPointsPersistencePort.existsTransactionByReference(txRef)) {
-      if (log.isInfoEnabled()) {
-        log.info("Physical payment transaction reference {} already processed, skipping (idempotence)", txRef);
-      }
+    if (isTransactionAlreadyProcessed(txRef)) {
       return;
     }
 
-    MerchantLoyaltyRate rate =
-        persistencePort
-            .findByStoreId(event.storeId())
-            .orElseGet(() -> new MerchantLoyaltyRate(event.storeId(), DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD));
-
+    MerchantLoyaltyRate rate = resolveStoreRate(event.storeId());
     BigDecimal pointsEarned =
         calculatePoints(event.amount(), rate.getEuroAmount(), rate.getPointsReward());
 
     String customerId = hasText(event.customerId()) ? event.customerId().trim() : null;
     String clientCode = hasText(event.clientCode()) ? event.clientCode().trim() : null;
+    Optional<UserPointsAccount> existingAccountOpt = findExistingAccount(customerId, clientCode);
 
-    Optional<UserPointsAccount> existingAccountOpt = Optional.empty();
-    if (customerId != null && userPointsPersistencePort != null) {
-      existingAccountOpt = userPointsPersistencePort.findAccountByUserId(customerId);
-    }
-    if (existingAccountOpt.isEmpty() && clientCode != null && userPointsPersistencePort != null) {
-      existingAccountOpt = userPointsPersistencePort.findAccountByClientCode(clientCode);
-    }
-
-    String effectiveUserId = customerId != null ? customerId : (existingAccountOpt.map(UserPointsAccount::userId).orElse(clientCode));
     Instant now = event.timestamp() != null ? event.timestamp() : Instant.now();
-
-    UserPointsAccount accountToSave;
-    BigDecimal newBalance;
-
-    if (existingAccountOpt.isPresent()) {
-      UserPointsAccount existing = existingAccountOpt.get();
-      newBalance = existing.balance().add(pointsEarned).setScale(1, RoundingMode.HALF_UP);
-      accountToSave =
-          new UserPointsAccount(
-              existing.id(),
-              existing.userId(),
-              clientCode != null ? clientCode : existing.clientCode(),
-              newBalance,
-              existing.createdAt(),
-              now);
-    } else {
-      newBalance = pointsEarned.setScale(1, RoundingMode.HALF_UP);
-      accountToSave =
-          new UserPointsAccount(
-              null,
-              effectiveUserId,
-              clientCode,
-              newBalance,
-              now,
-              now);
-    }
+    UserPointsAccount accountToSave =
+        buildAccountToSave(existingAccountOpt, customerId, clientCode, pointsEarned, now);
 
     if (userPointsPersistencePort != null) {
       UserPointsAccount savedAccount = userPointsPersistencePort.saveAccount(accountToSave);
-      String rateApplied =
-          String.format(
-              Locale.ROOT,
-              "%.2f EUR = %.1f PTS",
-              rate.getEuroAmount(),
-              rate.getPointsReward());
-      String storeName = "Magasin #" + event.storeId();
-
-      PointsTransaction transaction =
-          new PointsTransaction(
-              null,
-              txRef,
-              savedAccount.userId(),
-              event.storeId(),
-              storeName,
-              PointsTransactionType.EARN,
-              pointsEarned,
-              newBalance,
-              "PHYSICAL_PAYMENT",
-              "Gain de points en caisse physique (" + rateApplied + ")",
-              now);
-
-      userPointsPersistencePort.saveTransaction(savedAccount.id(), transaction);
-
-      if (log.isInfoEnabled()) {
-        log.info(
-            "Points credited for physical payment: txRef={}, userId={}, storeId={}, pointsEarned={}, newBalance={}",
-            txRef,
-            savedAccount.userId(),
-            event.storeId(),
-            pointsEarned,
-            newBalance);
-      }
+      recordPointsCredit(savedAccount, event, rate, pointsEarned, accountToSave.balance(), now);
     }
   }
 
-  public BigDecimal calculatePoints(BigDecimal amount, BigDecimal euroAmount, BigDecimal pointsReward) {
-    if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0
-        || euroAmount == null || euroAmount.compareTo(BigDecimal.ZERO) <= 0
-        || pointsReward == null || pointsReward.compareTo(BigDecimal.ZERO) <= 0) {
+  private boolean isTransactionAlreadyProcessed(String txRef) {
+    if (userPointsPersistencePort != null
+        && userPointsPersistencePort.existsTransactionByReference(txRef)) {
+      if (log.isInfoEnabled()) {
+        log.info(
+            "Physical payment transaction reference {} already processed, skipping (idempotence)",
+            txRef);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private MerchantLoyaltyRate resolveStoreRate(Long storeId) {
+    return persistencePort
+        .findByStoreId(storeId)
+        .orElseGet(
+            () -> new MerchantLoyaltyRate(storeId, DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD));
+  }
+
+  private Optional<UserPointsAccount> findExistingAccount(String customerId, String clientCode) {
+    if (userPointsPersistencePort == null) {
+      return Optional.empty();
+    }
+    if (customerId != null) {
+      Optional<UserPointsAccount> byUserId =
+          userPointsPersistencePort.findAccountByUserId(customerId);
+      if (byUserId.isPresent()) {
+        return byUserId;
+      }
+    }
+    if (clientCode != null) {
+      return userPointsPersistencePort.findAccountByClientCode(clientCode);
+    }
+    return Optional.empty();
+  }
+
+  private UserPointsAccount buildAccountToSave(
+      Optional<UserPointsAccount> existingAccountOpt,
+      String customerId,
+      String clientCode,
+      BigDecimal pointsEarned,
+      Instant now) {
+    if (existingAccountOpt.isPresent()) {
+      UserPointsAccount existing = existingAccountOpt.get();
+      BigDecimal newBalance =
+          existing.balance().add(pointsEarned).setScale(1, RoundingMode.HALF_UP);
+      return new UserPointsAccount(
+          existing.id(),
+          existing.userId(),
+          clientCode != null ? clientCode : existing.clientCode(),
+          newBalance,
+          existing.createdAt(),
+          now);
+    }
+    String effectiveUserId = customerId != null ? customerId : clientCode;
+    BigDecimal newBalance = pointsEarned.setScale(1, RoundingMode.HALF_UP);
+    return new UserPointsAccount(null, effectiveUserId, clientCode, newBalance, now, now);
+  }
+
+  private void recordPointsCredit(
+      UserPointsAccount savedAccount,
+      PhysicalPaymentCompletedEvent event,
+      MerchantLoyaltyRate rate,
+      BigDecimal pointsEarned,
+      BigDecimal newBalance,
+      Instant now) {
+    String txRef = event.transactionReference().trim();
+    String rateApplied =
+        String.format(
+            Locale.ROOT, "%.2f EUR = %.1f PTS", rate.getEuroAmount(), rate.getPointsReward());
+    String storeName = resolveStoreName(event.storeId());
+
+    PointsTransaction transaction =
+        new PointsTransaction(
+            null,
+            txRef,
+            savedAccount.userId(),
+            event.storeId(),
+            storeName,
+            PointsTransactionType.EARN,
+            pointsEarned,
+            newBalance,
+            "PHYSICAL_PAYMENT",
+            "Gain de points en caisse physique - " + storeName + " (" + rateApplied + ")",
+            now);
+
+    userPointsPersistencePort.saveTransaction(savedAccount.id(), transaction);
+
+    if (log.isInfoEnabled()) {
+      log.info(
+          "Points credited for physical payment: txRef={}, userId={}, storeId={}, pointsEarned={}, newBalance={}",
+          txRef,
+          savedAccount.userId(),
+          event.storeId(),
+          pointsEarned,
+          newBalance);
+    }
+  }
+
+  private String resolveStoreName(Long storeId) {
+    if (storeVerificationPort != null) {
+      return storeVerificationPort
+          .findStoreName(storeId)
+          .filter(this::hasText)
+          .orElse("Magasin #" + storeId);
+    }
+    return "Magasin #" + storeId;
+  }
+
+  public BigDecimal calculatePoints(
+      BigDecimal amount, BigDecimal euroAmount, BigDecimal pointsReward) {
+    if (amount == null
+        || amount.compareTo(BigDecimal.ZERO) <= 0
+        || euroAmount == null
+        || euroAmount.compareTo(BigDecimal.ZERO) <= 0
+        || pointsReward == null
+        || pointsReward.compareTo(BigDecimal.ZERO) <= 0) {
       return BigDecimal.ZERO.setScale(1, RoundingMode.UNNECESSARY);
     }
 

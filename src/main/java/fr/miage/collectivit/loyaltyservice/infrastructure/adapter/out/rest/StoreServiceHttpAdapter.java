@@ -55,6 +55,11 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
     return fetchStore(storeId).map(StoreDto::userId);
   }
 
+  @Override
+  public Optional<String> findStoreName(Long storeId) {
+    return fetchStore(storeId).map(StoreDto::name);
+  }
+
   private Optional<StoreDto> fetchStore(Long storeId) {
     try {
       StoreDto store =

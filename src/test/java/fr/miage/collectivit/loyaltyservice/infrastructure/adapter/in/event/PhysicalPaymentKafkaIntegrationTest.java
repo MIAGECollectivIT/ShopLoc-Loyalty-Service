@@ -44,35 +44,13 @@ import org.springframework.test.context.TestPropertySource;
 @DisplayName("Integration Test - End-to-End Physical Payment Kafka EDA Flow (SLE-175)")
 class PhysicalPaymentKafkaIntegrationTest {
 
-  @org.springframework.boot.test.context.TestConfiguration
-  static class TestKafkaProducerConfig {
-    @org.springframework.context.annotation.Bean
-    @SuppressWarnings("deprecation")
-    public org.springframework.kafka.core.ProducerFactory<String, Object> testProducerFactory(
-        org.springframework.kafka.test.EmbeddedKafkaBroker embeddedKafka) {
-      java.util.Map<String, Object> configs =
-          new java.util.HashMap<>(
-              org.springframework.kafka.test.utils.KafkaTestUtils.producerProps(embeddedKafka));
-      configs.put(
-          org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-          org.apache.kafka.common.serialization.StringSerializer.class);
-      configs.put(
-          org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-          org.springframework.kafka.support.serializer.JsonSerializer.class);
-      return new org.springframework.kafka.core.DefaultKafkaProducerFactory<>(configs);
-    }
-
-    @org.springframework.context.annotation.Bean
-    public KafkaTemplate<String, Object> kafkaTemplate(
-        org.springframework.kafka.core.ProducerFactory<String, Object> testProducerFactory) {
-      return new KafkaTemplate<>(testProducerFactory);
-    }
-  }
-
   @Autowired private KafkaTemplate<String, Object> kafkaTemplate;
   @Autowired private UserPointsPersistencePort userPointsPersistencePort;
   @Autowired private MerchantLoyaltyRatePersistencePort merchantLoyaltyRatePersistencePort;
-  @Autowired private org.springframework.kafka.config.KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
+
+  @Autowired
+  private org.springframework.kafka.config.KafkaListenerEndpointRegistry
+      kafkaListenerEndpointRegistry;
 
   @org.junit.jupiter.api.BeforeEach
   void setUp() {
@@ -84,7 +62,8 @@ class PhysicalPaymentKafkaIntegrationTest {
   }
 
   @Test
-  @DisplayName("Should consume physical payment event, credit points with merchant rate, and handle idempotence")
+  @DisplayName(
+      "Should consume physical payment event, credit points with merchant rate, and handle idempotence")
   void shouldConsumeEventAndCreditPointsIdempotently() {
     Long storeId = 20L;
     merchantLoyaltyRatePersistencePort.save(
@@ -97,13 +76,7 @@ class PhysicalPaymentKafkaIntegrationTest {
     // 20.00 EUR * 5.0 PTS / 2.00 EUR = 50.0 PTS
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            txRef,
-            storeId,
-            clientCode,
-            userId,
-            new BigDecimal("20.00"),
-            "EUR",
-            Instant.now());
+            txRef, storeId, clientCode, userId, new BigDecimal("20.00"), "EUR", Instant.now());
 
     kafkaTemplate.send("shoploc.physical-payments", clientCode, event);
 
@@ -116,7 +89,8 @@ class PhysicalPaymentKafkaIntegrationTest {
               assertThat(accountOpt).isPresent();
               assertThat(accountOpt.get().balance()).isEqualByComparingTo("50.0");
 
-              List<PointsTransaction> txs = userPointsPersistencePort.findTransactionsByUserId(userId);
+              List<PointsTransaction> txs =
+                  userPointsPersistencePort.findTransactionsByUserId(userId);
               assertThat(txs).hasSize(1);
               PointsTransaction tx = txs.get(0);
               assertThat(tx.transactionReference()).isEqualTo(txRef);
@@ -137,7 +111,8 @@ class PhysicalPaymentKafkaIntegrationTest {
               UserPointsAccount account =
                   userPointsPersistencePort.findAccountByUserId(userId).orElseThrow();
               assertThat(account.balance()).isEqualByComparingTo("50.0");
-              List<PointsTransaction> txs = userPointsPersistencePort.findTransactionsByUserId(userId);
+              List<PointsTransaction> txs =
+                  userPointsPersistencePort.findTransactionsByUserId(userId);
               assertThat(txs).hasSize(1);
             });
   }

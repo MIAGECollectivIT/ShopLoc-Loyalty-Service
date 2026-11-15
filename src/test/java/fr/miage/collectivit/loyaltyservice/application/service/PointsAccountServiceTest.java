@@ -215,7 +215,8 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName("Should skip processing when transaction reference has already been processed (Idempotence - SLE-173)")
+  @DisplayName(
+      "Should skip processing when transaction reference has already been processed (Idempotence - SLE-173)")
   void shouldSkipProcessingWhenTransactionAlreadyExists() {
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
@@ -227,7 +228,8 @@ class PointsAccountServiceTest {
             "EUR",
             Instant.now());
 
-    when(userPointsPersistencePort.existsTransactionByReference("TX-ALREADY-EXISTS")).thenReturn(true);
+    when(userPointsPersistencePort.existsTransactionByReference("TX-ALREADY-EXISTS"))
+        .thenReturn(true);
 
     service.processPhysicalPayment(event);
 
@@ -237,38 +239,44 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName("Should calculate points with merchant rate and credit existing account (SLE-173, SLE-174)")
+  @DisplayName(
+      "Should calculate points with merchant rate and credit existing account (SLE-173, SLE-174)")
   void shouldCalculatePointsWithMerchantRateAndCreditExistingAccount() {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-001",
-            10L,
-            "k7P9xQ2",
-            "user-123",
-            new BigDecimal("20.00"),
-            "EUR",
-            now);
+            "TX-PHY-001", 10L, "k7P9xQ2", "user-123", new BigDecimal("20.00"), "EUR", now);
 
     when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-001")).thenReturn(false);
     when(persistencePort.findByStoreId(10L))
-        .thenReturn(Optional.of(new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"))));
+        .thenReturn(
+            Optional.of(
+                new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"))));
 
     UserPointsAccount existingAccount =
-        new UserPointsAccount(1L, "user-123", "k7P9xQ2", new BigDecimal("10.0"), now.minusSeconds(3600), now.minusSeconds(3600));
-    when(userPointsPersistencePort.findAccountByUserId("user-123")).thenReturn(Optional.of(existingAccount));
+        new UserPointsAccount(
+            1L,
+            "user-123",
+            "k7P9xQ2",
+            new BigDecimal("10.0"),
+            now.minusSeconds(3600),
+            now.minusSeconds(3600));
+    when(userPointsPersistencePort.findAccountByUserId("user-123"))
+        .thenReturn(Optional.of(existingAccount));
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     service.processPhysicalPayment(event);
 
-    ArgumentCaptor<UserPointsAccount> accountCaptor = ArgumentCaptor.forClass(UserPointsAccount.class);
+    ArgumentCaptor<UserPointsAccount> accountCaptor =
+        ArgumentCaptor.forClass(UserPointsAccount.class);
     verify(userPointsPersistencePort).saveAccount(accountCaptor.capture());
     UserPointsAccount savedAccount = accountCaptor.getValue();
     assertThat(savedAccount.balance()).isEqualByComparingTo("60.0");
 
     ArgumentCaptor<PointsTransaction> txCaptor = ArgumentCaptor.forClass(PointsTransaction.class);
-    verify(userPointsPersistencePort).saveTransaction(org.mockito.ArgumentMatchers.eq(1L), txCaptor.capture());
+    verify(userPointsPersistencePort)
+        .saveTransaction(org.mockito.ArgumentMatchers.eq(1L), txCaptor.capture());
     PointsTransaction savedTx = txCaptor.getValue();
     assertThat(savedTx.transactionReference()).isEqualTo("TX-PHY-001");
     assertThat(savedTx.userId()).isEqualTo("user-123");
@@ -280,37 +288,82 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName("Should use default rate (1 EUR = 1 PTS) and create new account when store has no rate configured")
+  @DisplayName(
+      "Should use store name from StoreVerificationPort when available in transaction record")
+  void shouldUseStoreNameFromStoreVerificationPortWhenAvailable() {
+    Instant now = Instant.parse("2026-11-15T12:00:00Z");
+    PhysicalPaymentCompletedEvent event =
+        new PhysicalPaymentCompletedEvent(
+            "TX-PHY-STORE-NAME", 10L, "k7P9xQ2", "user-123", new BigDecimal("20.00"), "EUR", now);
+
+    when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-STORE-NAME"))
+        .thenReturn(false);
+    when(persistencePort.findByStoreId(10L))
+        .thenReturn(
+            Optional.of(
+                new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"))));
+    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Burger King Lille"));
+
+    UserPointsAccount existingAccount =
+        new UserPointsAccount(
+            1L,
+            "user-123",
+            "k7P9xQ2",
+            new BigDecimal("10.0"),
+            now.minusSeconds(3600),
+            now.minusSeconds(3600));
+    when(userPointsPersistencePort.findAccountByUserId("user-123"))
+        .thenReturn(Optional.of(existingAccount));
+    when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.processPhysicalPayment(event);
+
+    ArgumentCaptor<PointsTransaction> txCaptor = ArgumentCaptor.forClass(PointsTransaction.class);
+    verify(userPointsPersistencePort)
+        .saveTransaction(org.mockito.ArgumentMatchers.eq(1L), txCaptor.capture());
+    PointsTransaction savedTx = txCaptor.getValue();
+    assertThat(savedTx.storeName()).isEqualTo("Burger King Lille");
+    assertThat(savedTx.description()).contains("Burger King Lille");
+  }
+
+  @Test
+  @DisplayName(
+      "Should use default rate (1 EUR = 1 PTS) and create new account when store has no rate configured")
   void shouldCalculatePointsWithDefaultRateWhenStoreHasNoRateAndCreateNewAccount() {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-NEW-ACC",
-            99L,
-            "k7P9xQ2",
-            "user-new",
-            new BigDecimal("15.50"),
-            "EUR",
-            now);
+            "TX-PHY-NEW-ACC", 99L, "k7P9xQ2", "user-new", new BigDecimal("15.50"), "EUR", now);
 
-    when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NEW-ACC")).thenReturn(false);
+    when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NEW-ACC"))
+        .thenReturn(false);
     when(persistencePort.findByStoreId(99L)).thenReturn(Optional.empty());
     when(userPointsPersistencePort.findAccountByUserId("user-new")).thenReturn(Optional.empty());
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
-        .thenAnswer(invocation -> {
-          UserPointsAccount arg = invocation.getArgument(0);
-          return new UserPointsAccount(42L, arg.userId(), arg.clientCode(), arg.balance(), arg.createdAt(), arg.updatedAt());
-        });
+        .thenAnswer(
+            invocation -> {
+              UserPointsAccount arg = invocation.getArgument(0);
+              return new UserPointsAccount(
+                  42L,
+                  arg.userId(),
+                  arg.clientCode(),
+                  arg.balance(),
+                  arg.createdAt(),
+                  arg.updatedAt());
+            });
 
     service.processPhysicalPayment(event);
 
-    ArgumentCaptor<UserPointsAccount> accountCaptor = ArgumentCaptor.forClass(UserPointsAccount.class);
+    ArgumentCaptor<UserPointsAccount> accountCaptor =
+        ArgumentCaptor.forClass(UserPointsAccount.class);
     verify(userPointsPersistencePort).saveAccount(accountCaptor.capture());
     UserPointsAccount savedAccount = accountCaptor.getValue();
     assertThat(savedAccount.balance()).isEqualByComparingTo("15.5");
 
     ArgumentCaptor<PointsTransaction> txCaptor = ArgumentCaptor.forClass(PointsTransaction.class);
-    verify(userPointsPersistencePort).saveTransaction(org.mockito.ArgumentMatchers.eq(42L), txCaptor.capture());
+    verify(userPointsPersistencePort)
+        .saveTransaction(org.mockito.ArgumentMatchers.eq(42L), txCaptor.capture());
     PointsTransaction savedTx = txCaptor.getValue();
     assertThat(savedTx.points()).isEqualByComparingTo("15.5");
     assertThat(savedTx.balanceAfter()).isEqualByComparingTo("15.5");
@@ -323,27 +376,32 @@ class PointsAccountServiceTest {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-NO-UUID",
-            10L,
-            "CARD-777",
-            "   ",
-            new BigDecimal("10.00"),
-            "EUR",
-            now);
+            "TX-PHY-NO-UUID", 10L, "CARD-777", "   ", new BigDecimal("10.00"), "EUR", now);
 
-    when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NO-UUID")).thenReturn(false);
+    when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NO-UUID"))
+        .thenReturn(false);
     when(persistencePort.findByStoreId(10L))
-        .thenReturn(Optional.of(new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"))));
+        .thenReturn(
+            Optional.of(
+                new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"))));
 
     UserPointsAccount existingAccount =
-        new UserPointsAccount(5L, "user-registered-777", "CARD-777", new BigDecimal("5.0"), now.minusSeconds(3600), now.minusSeconds(3600));
-    when(userPointsPersistencePort.findAccountByClientCode("CARD-777")).thenReturn(Optional.of(existingAccount));
+        new UserPointsAccount(
+            5L,
+            "user-registered-777",
+            "CARD-777",
+            new BigDecimal("5.0"),
+            now.minusSeconds(3600),
+            now.minusSeconds(3600));
+    when(userPointsPersistencePort.findAccountByClientCode("CARD-777"))
+        .thenReturn(Optional.of(existingAccount));
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     service.processPhysicalPayment(event);
 
-    ArgumentCaptor<UserPointsAccount> accountCaptor = ArgumentCaptor.forClass(UserPointsAccount.class);
+    ArgumentCaptor<UserPointsAccount> accountCaptor =
+        ArgumentCaptor.forClass(UserPointsAccount.class);
     verify(userPointsPersistencePort).saveAccount(accountCaptor.capture());
     assertThat(accountCaptor.getValue().balance()).isEqualByComparingTo("15.0");
   }

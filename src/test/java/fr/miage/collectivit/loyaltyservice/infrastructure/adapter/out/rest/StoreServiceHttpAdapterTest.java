@@ -47,6 +47,36 @@ class StoreServiceHttpAdapterTest {
   }
 
   @Test
+  @DisplayName("Should return store name when store exists on Store Service")
+  void shouldReturnStoreNameWhenStoreExists() {
+    mockServer
+        .expect(requestTo("http://store-service:8080/v1/stores/10"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(
+            withSuccess(
+                "{\"id\":10,\"name\":\"Boulangerie\",\"userId\":42}", MediaType.APPLICATION_JSON));
+
+    Optional<String> storeName = adapter.findStoreName(10L);
+
+    assertThat(storeName).contains("Boulangerie");
+    mockServer.verify();
+  }
+
+  @Test
+  @DisplayName("Should return empty store name when Store Service returns 404 Not Found")
+  void shouldReturnEmptyStoreNameWhenStoreNotFound() {
+    mockServer
+        .expect(requestTo("http://store-service:8080/v1/stores/999"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+    Optional<String> storeName = adapter.findStoreName(999L);
+
+    assertThat(storeName).isEmpty();
+    mockServer.verify();
+  }
+
+  @Test
   @DisplayName("Should return empty when Store Service returns 404 Not Found")
   void shouldReturnEmptyWhenStoreNotFound() {
     mockServer
