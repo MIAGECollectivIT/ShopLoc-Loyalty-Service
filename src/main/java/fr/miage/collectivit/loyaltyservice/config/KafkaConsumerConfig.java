@@ -44,6 +44,10 @@ public class KafkaConsumerConfig {
     props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class.getName());
     props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
     props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+    props.put(
+        JsonDeserializer.TYPE_MAPPINGS,
+        "fr.miage.collectivit.salesservice.dto.event.PhysicalPaymentCompletedEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,"
+            + "fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent");
     return new DefaultKafkaConsumerFactory<>(props);
   }
 
