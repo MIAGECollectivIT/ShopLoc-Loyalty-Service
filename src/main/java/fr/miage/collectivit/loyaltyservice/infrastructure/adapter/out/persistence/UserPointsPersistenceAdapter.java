@@ -35,10 +35,22 @@ public class UserPointsPersistenceAdapter implements UserPointsPersistencePort {
 
   @Override
   @Transactional(readOnly = true)
+  public Optional<UserPointsAccount> findAccountByClientCode(String clientCode) {
+    return accountRepository.findByClientCode(clientCode).map(mapper::toDomain);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
   public List<PointsTransaction> findTransactionsByUserId(String userId) {
     return transactionRepository.findByUserIdOrderByCreatedAtDescIdDesc(userId).stream()
         .map(mapper::toDomain)
         .toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public boolean existsTransactionByReference(String transactionReference) {
+    return transactionRepository.existsByTransactionReference(transactionReference);
   }
 
   @Override

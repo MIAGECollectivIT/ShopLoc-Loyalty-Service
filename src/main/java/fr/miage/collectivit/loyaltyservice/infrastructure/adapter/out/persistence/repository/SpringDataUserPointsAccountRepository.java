@@ -11,4 +11,6 @@ public interface SpringDataUserPointsAccountRepository
     extends JpaRepository<UserPointsAccountJpaEntity, Long> {
 
   Optional<UserPointsAccountJpaEntity> findByUserId(String userId);
+
+  Optional<UserPointsAccountJpaEntity> findByClientCode(String clientCode);
 }

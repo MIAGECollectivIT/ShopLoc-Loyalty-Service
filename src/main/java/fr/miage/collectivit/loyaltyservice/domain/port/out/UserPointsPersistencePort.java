@@ -13,7 +13,11 @@ public interface UserPointsPersistencePort {
 
   Optional<UserPointsAccount> findAccountByUserId(String userId);
 
+  Optional<UserPointsAccount> findAccountByClientCode(String clientCode);
+
   List<PointsTransaction> findTransactionsByUserId(String userId);
+
+  boolean existsTransactionByReference(String transactionReference);
 
   UserPointsAccount saveAccount(UserPointsAccount account);
 

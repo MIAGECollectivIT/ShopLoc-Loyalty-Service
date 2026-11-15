@@ -1,0 +1,84 @@
+package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import fr.miage.collectivit.loyaltyservice.domain.port.in.ProcessPhysicalPaymentLoyaltyUseCase;
+import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent;
+import java.math.BigDecimal;
+import java.time.Instant;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("Kafka Adapter - KafkaPhysicalPaymentConsumer Unit Tests (SLE-173)")
+class KafkaPhysicalPaymentConsumerTest {
+
+  @Mock private ProcessPhysicalPaymentLoyaltyUseCase processPhysicalPaymentLoyaltyUseCase;
+
+  @InjectMocks private KafkaPhysicalPaymentConsumer consumer;
+
+  @Test
+  @DisplayName("Should delegate valid PhysicalPaymentCompletedEvent to use case")
+  void shouldDelegateValidEventToUseCase() {
+    PhysicalPaymentCompletedEvent event =
+        new PhysicalPaymentCompletedEvent(
+            "TX-PHY-100",
+            10L,
+            "k7P9xQ2",
+            "user-123",
+            new BigDecimal("25.00"),
+            "EUR",
+            Instant.now());
+
+    consumer.onPhysicalPaymentCompleted(event);
+
+    verify(processPhysicalPaymentLoyaltyUseCase).processPhysicalPayment(event);
+  }
+
+  @Test
+  @DisplayName("Should ignore event when null or transaction reference is null or blank")
+  void shouldIgnoreNullOrBlankTransactionReference() {
+    consumer.onPhysicalPaymentCompleted(null);
+
+    PhysicalPaymentCompletedEvent blankRefEvent =
+        new PhysicalPaymentCompletedEvent(
+            "   ",
+            10L,
+            "k7P9xQ2",
+            "user-123",
+            new BigDecimal("25.00"),
+            "EUR",
+            Instant.now());
+    consumer.onPhysicalPaymentCompleted(blankRefEvent);
+
+    verify(processPhysicalPaymentLoyaltyUseCase, never()).processPhysicalPayment(any());
+  }
+
+  @Test
+  @DisplayName("Should safely catch exceptions without failing listener thread")
+  void shouldSafelyCatchExceptionsWithoutFailingListener() {
+    PhysicalPaymentCompletedEvent event =
+        new PhysicalPaymentCompletedEvent(
+            "TX-ERR-500",
+            10L,
+            "k7P9xQ2",
+            "user-123",
+            new BigDecimal("25.00"),
+            "EUR",
+            Instant.now());
+
+    doThrow(new RuntimeException("Simulated error in persistence"))
+        .when(processPhysicalPaymentLoyaltyUseCase)
+        .processPhysicalPayment(event);
+
+    assertThatCode(() -> consumer.onPhysicalPaymentCompleted(event)).doesNotThrowAnyException();
+  }
+}

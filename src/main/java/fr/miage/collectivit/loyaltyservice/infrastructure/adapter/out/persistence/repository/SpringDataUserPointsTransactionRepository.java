@@ -11,4 +11,6 @@ public interface SpringDataUserPointsTransactionRepository
     extends JpaRepository<UserPointsTransactionJpaEntity, Long> {
 
   List<UserPointsTransactionJpaEntity> findByUserIdOrderByCreatedAtDescIdDesc(String userId);
+
+  boolean existsByTransactionReference(String transactionReference);
 }
