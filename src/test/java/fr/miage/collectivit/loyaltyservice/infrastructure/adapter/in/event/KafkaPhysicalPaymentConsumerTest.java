@@ -82,3 +82,4 @@ class KafkaPhysicalPaymentConsumerTest {
     assertThatCode(() -> consumer.onPhysicalPaymentCompleted(event)).doesNotThrowAnyException();
   }
 }
+

@@ -9,3 +9,4 @@ public interface ProcessPhysicalPaymentLoyaltyUseCase {
 
   void processPhysicalPayment(PhysicalPaymentCompletedEvent event);
 }
+
