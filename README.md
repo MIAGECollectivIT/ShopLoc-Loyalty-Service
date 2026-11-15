@@ -13,6 +13,7 @@ Loyalty and customer rewards management microservice for the ShopLoc project (MI
   - [4.1 Interactive Documentation](#41-interactive-documentation)
   - [4.2 Authentication in application.yaml](#42-authentication-in-applicationyaml)
   - [4.3 OpenAPI Vendor Extensions](#43-openapi-vendor-extensions)
+  - [4.4 Asynchronous Kafka Event Ingestion (SLE-36 / SLE-173)](#44-asynchronous-kafka-event-ingestion-sle-36--sle-173)
 - [5. Project structure](#5-project-structure)
 - [6. Workflow](#6-workflow)
   - [6.1 Semantic versioning](#61-semantic-versioning)
@@ -32,6 +33,7 @@ Loyalty and customer rewards management microservice for the ShopLoc project (MI
 - **Spring Boot Starter Validation**: Bean Validation with Hibernate Validator.
 - **Springdoc OpenAPI (Swagger UI)**: OpenAPI 3 interactive documentation (`/swagger-ui.html`) with JWT authentication support.
 - **Project Lombok**: Reduces boilerplate code (getters, setters, builders, constructors) via annotation processing.
+- **Spring for Apache Kafka (Spring Kafka)**: Event-driven architecture consumer (`KafkaConsumerConfig`, `KafkaPhysicalPaymentConsumer`, `KafkaTransactionApprovedConsumer`) consuming checkout events from topics `shoploc.physical-payments` and `shoploc.transactions.approved` with JSON deserialization and cross-package type mapping (SLE-36 / SLE-173).
 - **Spring Boot Starter Test & Testing Suite**:
   - JUnit Jupiter (JUnit 5)
   - Mockito & Mockito JUnit Jupiter
@@ -141,6 +143,17 @@ application:
       x-service-name: "loyalty-service"
 ```
 
+### 4.4 Asynchronous Kafka Event Ingestion (SLE-36 / SLE-173)
+`Loyalty-Service` listens to checkout events emitted across the cluster to credit loyalty points asynchronously:
+- **Topic**: `shoploc.physical-payments` (In-store physical purchases)
+- **Consumer**: `KafkaPhysicalPaymentConsumer` (`@KafkaListener`)
+- **Workflow**:
+  1. Receives `PhysicalPaymentCompletedEvent` (deserialized via `KafkaConsumerConfig` type mapping).
+  2. Guarantees **idempotence** by checking if `transactionReference` already exists in `points_transaction`.
+  3. Resolves the active store rate from `MerchantLoyaltyRate` (or falls back to default 1.00 EUR = 1.0 PTS).
+  4. Resolves customer by UUID (`customerId`) or loyalty card code (`clientCode`).
+  5. Atomically credits the points balance and appends an `EARN` transaction to the ledger history.
+
 ## 5. Project structure
 
 > 📘 For a detailed description and sequence diagrams of internal flows, see the architecture document: [**docs/architecture-hexagonale.md**](docs/architecture-hexagonale.md).
@@ -164,16 +177,30 @@ The project strictly follows **Hexagonal Architecture (Ports & Adapters)**:
 │   ├── main/
 │   │   ├── java/                # Java Spring Boot source code
 │   │   │   └── fr/miage/collectivit/loyaltyservice/
-│   │   │       ├── domain/      # Cœur métier pur (Model, Ports In/Out, Exceptions)
-│   │   │       ├── application/ # Orchestration applicative (PointsAccountService)
-│   │   │       ├── infrastructure/ # Adaptateurs Inbound (Web REST) et Outbound (JPA, HTTP)
-│   │   │       ├── security/    # Contrôle d'accès RBAC (@RequiresRole, JWT Interceptor)
-│   │   │       ├── config/      # Configuration OpenAPI / Swagger
-│   │   │       └── LoyaltyServiceApplication.java   # Point d'entrée Spring Boot
+│   │   │       ├── domain/      # Pure business core (Model, Ports In/Out, Exceptions)
+│   │   │       │   ├── model/   # MerchantLoyaltyRate, UserPointsAccount, UserPointsTransaction
+│   │   │       │   └── port/
+│   │   │       │       ├── in/  # ConfigureMerchantLoyaltyRateUseCase, ProcessPhysicalPaymentLoyaltyUseCase, etc.
+│   │   │       │       └── out/ # MerchantLoyaltyRatePersistencePort, UserPointsPersistencePort, StoreVerificationPort
+│   │   │       ├── application/ # Application orchestration (PointsAccountService)
+│   │   │       ├── infrastructure/
+│   │   │       │   └── adapter/
+│   │   │       │       ├── in/
+│   │   │       │       │   ├── web/    # Primary Web REST adapters (MerchantLoyaltyRateController, PointsAccountController)
+│   │   │       │       │   └── event/  # Primary Event-Driven Kafka adapters (KafkaPhysicalPaymentConsumer, KafkaTransactionApprovedConsumer)
+│   │   │       │       └── out/
+│   │   │       │           ├── persistence/ # Secondary PostgreSQL JPA persistence adapters
+│   │   │       │           └── rest/        # Secondary HTTP RestClient adapters (StoreServiceHttpAdapter)
+│   │   │       ├── security/    # RBAC security (@RequiresRole, JWT interceptor)
+│   │   │       ├── config/      # OpenAPI/Swagger & Kafka consumer configuration
+│   │   │       │   ├── KafkaConsumerConfig.java
+│   │   │       │   ├── KafkaTopicConfig.java
+│   │   │       │   └── OpenApiConfig.java
+│   │   │       └── LoyaltyServiceApplication.java
 │   │   └── resources/
-│   │       ├── application.yaml # Configuration applicative et endpoints inter-services
-│   │       └── db/migration/    # Scripts de migration Flyway PostgreSQL
-│   └── test/                    # Tests unitaires, d'intégration et sécurité (51 tests)
+│   │       ├── application.yaml # Application, JPA, Flyway, Kafka & security config
+│   │       └── db/migration/    # Flyway database migration scripts
+│   └── test/                    # Unit, integration, security & Kafka tests (133 tests)
 ├── docker-compose.yml           # Local multi-container development orchestration
 ├── Dockerfile                   # Multi-stage container image definition
 ├── mvnw                         # Maven Wrapper script (Linux / macOS)
