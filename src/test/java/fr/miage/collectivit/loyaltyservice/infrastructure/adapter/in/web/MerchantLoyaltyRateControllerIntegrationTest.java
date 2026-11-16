@@ -41,6 +41,11 @@ class MerchantLoyaltyRateControllerIntegrationTest {
 
   @Autowired private WebApplicationContext webApplicationContext;
   @Autowired private JwtValidatorService jwtValidatorService;
+
+  @Autowired
+  private fr.miage.collectivit.loyaltyservice.security.TokenRevocationService
+      tokenRevocationService;
+
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @MockitoBean private StoreVerificationPort storeVerificationPort;
@@ -112,7 +117,14 @@ class MerchantLoyaltyRateControllerIntegrationTest {
   @DisplayName("PUT with revoked token -> should return 401 Unauthorized")
   void shouldDenyPutWithRevokedToken() throws Exception {
     String revokedJti = UUID.randomUUID().toString();
-    jwtValidatorService.addRevokedJtiForTest(revokedJti);
+    @SuppressWarnings("unchecked")
+    java.util.Set<String> cached =
+        (java.util.Set<String>)
+            org.springframework.test.util.ReflectionTestUtils.getField(
+                tokenRevocationService, "cachedRevokedJtis");
+    if (cached != null) {
+      cached.add(revokedJti);
+    }
 
     String token = generateToken("MERCHANT", 42L, revokedJti);
     MerchantLoyaltyRateRequest request =

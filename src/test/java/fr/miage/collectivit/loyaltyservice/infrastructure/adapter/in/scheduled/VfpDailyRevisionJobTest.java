@@ -43,8 +43,10 @@ class VfpDailyRevisionJobTest {
     UserVfpStatus userB =
         new UserVfpStatus("USER-B", true, now.minusSeconds(86400 * 10), null, now);
 
-    when(userVfpPersistencePort.findActiveVfpUsers(0, 50)).thenReturn(List.of(userA, userB));
-    when(userVfpPersistencePort.findActiveVfpUsers(1, 50)).thenReturn(Collections.emptyList());
+    when(userVfpPersistencePort.findActiveVfpUsersAfter(null, 50))
+        .thenReturn(List.of(userA, userB));
+    when(userVfpPersistencePort.findActiveVfpUsersAfter("USER-B", 50))
+        .thenReturn(Collections.emptyList());
 
     // User A dropped under 10 -> revoked (isVfp = false)
     UserVfpStatus revokedA = new UserVfpStatus("USER-A", false, userA.getGrantedAt(), now, now);
@@ -71,9 +73,10 @@ class VfpDailyRevisionJobTest {
     UserVfpStatus userError = new UserVfpStatus("USER-ERR", true, now, null, now);
     UserVfpStatus userValid = new UserVfpStatus("USER-OK", true, now, null, now);
 
-    when(userVfpPersistencePort.findActiveVfpUsers(0, 50))
+    when(userVfpPersistencePort.findActiveVfpUsersAfter(null, 50))
         .thenReturn(List.of(userError, userValid));
-    when(userVfpPersistencePort.findActiveVfpUsers(1, 50)).thenReturn(Collections.emptyList());
+    when(userVfpPersistencePort.findActiveVfpUsersAfter("USER-OK", 50))
+        .thenReturn(Collections.emptyList());
 
     when(evaluateAndApplyVfpStatusUseCase.evaluateAndApply("USER-ERR"))
         .thenThrow(new RuntimeException("Simulated Sales Service timeout"));

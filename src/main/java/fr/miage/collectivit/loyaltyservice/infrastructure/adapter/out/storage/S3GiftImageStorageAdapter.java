@@ -35,7 +35,7 @@ public class S3GiftImageStorageAdapter implements GiftImageStoragePort {
   private static final Logger log = LoggerFactory.getLogger(S3GiftImageStorageAdapter.class);
 
   private static final List<String> ALLOWED_CONTENT_TYPES =
-      Arrays.asList("image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml");
+      Arrays.asList("image/jpeg", "image/png", "image/webp", "image/gif");
 
   private final S3Client s3Client;
   private final String bucketName;
@@ -66,7 +66,7 @@ public class S3GiftImageStorageAdapter implements GiftImageStoragePort {
       throw new IllegalArgumentException(
           "Format de fichier non supporté ("
               + contentType
-              + "). Formats acceptés : JPEG, PNG, WEBP, GIF, SVG");
+              + "). Formats acceptés : JPEG, PNG, WEBP, GIF");
     }
 
     String extension = extractExtension(originalFilename, contentType);
@@ -141,7 +141,7 @@ public class S3GiftImageStorageAdapter implements GiftImageStoragePort {
   private String extractExtension(String filename, String contentType) {
     if (filename != null && filename.contains(".")) {
       String ext = filename.substring(filename.lastIndexOf('.')).toLowerCase(Locale.ROOT);
-      if (Arrays.asList(".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg").contains(ext)) {
+      if (Arrays.asList(".jpg", ".jpeg", ".png", ".webp", ".gif").contains(ext)) {
         return ext;
       }
     }
@@ -149,7 +149,6 @@ public class S3GiftImageStorageAdapter implements GiftImageStoragePort {
       case "image/png" -> ".png";
       case "image/webp" -> ".webp";
       case "image/gif" -> ".gif";
-      case "image/svg+xml" -> ".svg";
       default -> ".jpg";
     };
   }
@@ -196,7 +195,6 @@ public class S3GiftImageStorageAdapter implements GiftImageStoragePort {
     if (lower.endsWith(".png")) return "image/png";
     if (lower.endsWith(".webp")) return "image/webp";
     if (lower.endsWith(".gif")) return "image/gif";
-    if (lower.endsWith(".svg")) return "image/svg+xml";
     return "image/jpeg";
   }
 

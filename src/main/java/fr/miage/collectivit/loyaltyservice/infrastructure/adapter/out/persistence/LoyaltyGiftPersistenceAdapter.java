@@ -42,6 +42,14 @@ public class LoyaltyGiftPersistenceAdapter implements LoyaltyGiftPersistencePort
   }
 
   @Override
+  public Optional<LoyaltyGift> findByIdAndStoreIdForUpdate(Long id, Long storeId) {
+    if (id == null || storeId == null) {
+      return Optional.empty();
+    }
+    return repository.findByIdAndStoreIdForUpdate(id, storeId).map(mapper::toDomain);
+  }
+
+  @Override
   public List<LoyaltyGift> findByStoreId(Long storeId) {
     if (storeId == null) {
       return List.of();

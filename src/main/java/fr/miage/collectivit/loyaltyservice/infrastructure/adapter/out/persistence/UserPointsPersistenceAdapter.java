@@ -40,6 +40,18 @@ public class UserPointsPersistenceAdapter implements UserPointsPersistencePort {
   }
 
   @Override
+  @Transactional
+  public Optional<UserPointsAccount> findAccountByUserIdForUpdate(String userId) {
+    return accountRepository.findByUserIdForUpdate(userId).map(mapper::toDomain);
+  }
+
+  @Override
+  @Transactional
+  public Optional<UserPointsAccount> findAccountByClientCodeForUpdate(String clientCode) {
+    return accountRepository.findByClientCodeForUpdate(clientCode).map(mapper::toDomain);
+  }
+
+  @Override
   @Transactional(readOnly = true)
   public List<PointsTransaction> findTransactionsByUserId(String userId) {
     return transactionRepository.findByUserIdOrderByCreatedAtDescIdDesc(userId).stream()
@@ -58,7 +70,7 @@ public class UserPointsPersistenceAdapter implements UserPointsPersistencePort {
   public UserPointsAccount saveAccount(UserPointsAccount account) {
     UserPointsAccountJpaEntity entityToSave =
         accountRepository
-            .findByUserId(account.userId())
+            .findByUserIdForUpdate(account.userId())
             .map(
                 existing -> {
                   existing.setClientCode(account.clientCode());

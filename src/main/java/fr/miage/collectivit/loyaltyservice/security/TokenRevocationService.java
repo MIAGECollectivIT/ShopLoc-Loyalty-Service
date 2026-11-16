@@ -108,8 +108,4 @@ public class TokenRevocationService {
     }
     return Optional.empty();
   }
-
-  public void addRevokedJtiForTest(String jti) {
-    cachedRevokedJtis.add(jti);
-  }
 }

@@ -185,6 +185,28 @@ class UserPointsBalanceControllerTest {
   }
 
   @Test
+  @DisplayName("SLE-176: Merchant querying customer's /customers/{customerId}/points gets 200")
+  void shouldAllowMerchantToReadCustomerPoints() throws Exception {
+    String targetUserId = "user-uuid-555";
+    Instant now = Instant.parse("2026-11-15T11:00:00Z");
+    when(getUserPointsBalanceQuery.getUserPointsBalance(targetUserId))
+        .thenReturn(
+            new UserPointsBalance(
+                targetUserId, "CL95555", new BigDecimal("80.0"), now, Collections.emptyList()));
+
+    String merchantToken = generateToken("MERCHANT", "merchant-uuid-1", 10L);
+
+    mockMvc
+        .perform(
+            get("/v1/loyalty/customers/" + targetUserId + "/points")
+                .header("Authorization", "Bearer " + merchantToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.userId").value(targetUserId))
+        .andExpect(jsonPath("$.points").value(80.0))
+        .andExpect(jsonPath("$.balance").value(80.0));
+  }
+
+  @Test
   @DisplayName("SLE-176: Client accessing via dbId fallback claim when userId claim is absent")
   void shouldResolveDbIdOnSelfBalanceWhenUserIdClaimAbsent() throws Exception {
     Instant now = Instant.parse("2026-11-15T11:00:00Z");

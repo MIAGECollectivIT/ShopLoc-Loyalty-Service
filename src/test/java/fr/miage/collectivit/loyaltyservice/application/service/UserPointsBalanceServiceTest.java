@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,6 +96,32 @@ class UserPointsBalanceServiceTest {
 
     verify(persistencePort).findAccountByUserId(userId);
     verify(persistencePort).findTransactionsByUserId(userId);
+  }
+
+  @Test
+  @DisplayName(
+      "Should resolve balance and transactions by clientCode fallback when userId not found")
+  void shouldResolveBalanceByClientCodeWhenUserIdNotFound() {
+    String clientCode = "CL95001";
+    String actualUserId = "user-uuid-12345";
+    Instant updatedAt = Instant.parse("2026-11-15T10:00:00Z");
+
+    UserPointsAccount account =
+        new UserPointsAccount(
+            1L, actualUserId, clientCode, new BigDecimal("75.0"), updatedAt, updatedAt);
+
+    when(persistencePort.findAccountByUserId(clientCode)).thenReturn(Optional.empty());
+    when(persistencePort.findAccountByClientCode(clientCode)).thenReturn(Optional.of(account));
+    when(persistencePort.findTransactionsByUserId(actualUserId))
+        .thenReturn(Collections.emptyList());
+
+    UserPointsBalance result = service.getUserPointsBalance(clientCode);
+
+    assertThat(result.userId()).isEqualTo(actualUserId);
+    assertThat(result.clientCode()).isEqualTo(clientCode);
+    assertThat(result.balance()).isEqualByComparingTo("75.0");
+    verify(persistencePort).findAccountByClientCode(clientCode);
+    verify(persistencePort).findTransactionsByUserId(actualUserId);
   }
 
   @Test

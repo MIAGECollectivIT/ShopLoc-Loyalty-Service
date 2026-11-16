@@ -39,14 +39,17 @@ public class UserPointsBalanceService implements GetUserPointsBalanceQuery {
     UserPointsAccount account =
         persistencePort
             .findAccountByUserId(cleanUserId)
+            .or(() -> persistencePort.findAccountByClientCode(cleanUserId))
             .orElseGet(() -> UserPointsAccount.empty(cleanUserId, clock.instant()));
 
-    List<PointsTransaction> transactions = persistencePort.findTransactionsByUserId(cleanUserId);
+    String effectiveUserId = account.userId() != null ? account.userId() : cleanUserId;
+    List<PointsTransaction> transactions =
+        persistencePort.findTransactionsByUserId(effectiveUserId);
     List<PointsTransaction> safeTransactions =
         transactions != null ? transactions : Collections.emptyList();
 
     return new UserPointsBalance(
-        cleanUserId,
+        effectiveUserId,
         account.clientCode(),
         account.balance(),
         account.updatedAt(),

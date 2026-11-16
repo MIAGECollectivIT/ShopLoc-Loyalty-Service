@@ -41,24 +41,24 @@ public class VfpDailyRevisionJob {
       log.info("Starting scheduled daily VFP revision batch job...");
     }
     long startTime = System.currentTimeMillis();
-    int page = 0;
     int totalAudited = 0;
     int totalRevoked = 0;
+    String lastUserId = null;
 
     List<UserVfpStatus> activeUsers =
-        userVfpPersistencePort.findActiveVfpUsers(page, BATCH_PAGE_SIZE);
+        userVfpPersistencePort.findActiveVfpUsersAfter(lastUserId, BATCH_PAGE_SIZE);
     while (!activeUsers.isEmpty()) {
       for (UserVfpStatus user : activeUsers) {
         totalAudited++;
         if (auditUser(user)) {
           totalRevoked++;
         }
+        lastUserId = user.getUserId();
       }
       if (activeUsers.size() < BATCH_PAGE_SIZE) {
         break;
       }
-      page++;
-      activeUsers = userVfpPersistencePort.findActiveVfpUsers(page, BATCH_PAGE_SIZE);
+      activeUsers = userVfpPersistencePort.findActiveVfpUsersAfter(lastUserId, BATCH_PAGE_SIZE);
     }
 
     long duration = System.currentTimeMillis() - startTime;

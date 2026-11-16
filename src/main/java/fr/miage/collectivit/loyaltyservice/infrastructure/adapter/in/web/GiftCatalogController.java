@@ -135,6 +135,8 @@ public class GiftCatalogController {
                 ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(resource.contentType()))
                     .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                    .header("Content-Security-Policy", "default-src 'none'")
+                    .header("X-Content-Type-Options", "nosniff")
                     .body(resource.bytes()))
         .orElseGet(() -> ResponseEntity.notFound().build());
   }

@@ -17,13 +17,14 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Application service implementing use cases for managing and querying the gift catalog (Story
  * SLE-60).
  */
 @Service
-@Transactional
+@SuppressWarnings("PMD.AvoidCatchingGenericException")
 public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCatalogQuery {
 
   private static final String ROLE_ADMIN = "ADMIN";
@@ -31,11 +32,14 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
   private final LoyaltyGiftPersistencePort persistencePort;
   private final StoreVerificationPort storeVerificationPort;
   private final GiftImageStoragePort giftImageStoragePort;
+  private final TransactionTemplate transactionTemplate;
 
   public GiftCatalogService(
       LoyaltyGiftPersistencePort persistencePort,
       StoreVerificationPort storeVerificationPort,
-      GiftImageStoragePort giftImageStoragePort) {
+      GiftImageStoragePort giftImageStoragePort,
+      TransactionTemplate transactionTemplate) {
+    this.transactionTemplate = java.util.Objects.requireNonNull(transactionTemplate);
     this.persistencePort = persistencePort;
     this.storeVerificationPort = storeVerificationPort;
     this.giftImageStoragePort = giftImageStoragePort;
@@ -57,23 +61,32 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
       String contentType,
       Long userId,
       String userRole) {
+    // Network I/O (store-service, S3) is kept outside of the DB transaction.
     validateStoreOwnership(storeId, userId, userRole);
 
-    String finalImageUrl = command.imageUrl();
-    if (imageStream != null && imageSize > 0) {
-      finalImageUrl =
-          giftImageStoragePort.storeImage(imageStream, imageSize, originalFilename, contentType);
-    }
+    boolean uploaded = imageStream != null && imageSize > 0;
+    String finalImageUrl =
+        uploaded
+            ? giftImageStoragePort.storeImage(imageStream, imageSize, originalFilename, contentType)
+            : command.imageUrl();
 
-    LoyaltyGift gift =
-        new LoyaltyGift(
-            storeId,
-            command.name(),
-            command.description(),
-            command.pointsCost(),
-            command.stock(),
-            finalImageUrl);
-    return persistencePort.save(gift);
+    try {
+      return transactionTemplate.execute(
+          status ->
+              persistencePort.save(
+                  new LoyaltyGift(
+                      storeId,
+                      command.name(),
+                      command.description(),
+                      command.pointsCost(),
+                      command.stock(),
+                      finalImageUrl)));
+    } catch (RuntimeException ex) {
+      if (uploaded) {
+        deleteImageQuietly(finalImageUrl);
+      }
+      throw ex;
+    }
   }
 
   @Override
@@ -94,44 +107,75 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
       Long userId,
       String userRole) {
     validateStoreOwnership(storeId, userId, userRole);
-    LoyaltyGift gift =
-        persistencePort
-            .findByIdAndStoreId(giftId, storeId)
-            .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
 
-    String finalImageUrl = command.imageUrl() != null ? command.imageUrl() : gift.getImageUrl();
-    if (imageStream != null && imageSize > 0) {
-      if (gift.getImageUrl() != null && !gift.getImageUrl().isBlank()) {
-        giftImageStoragePort.deleteImage(gift.getImageUrl());
+    boolean uploaded = imageStream != null && imageSize > 0;
+    String newImageUrl =
+        uploaded
+            ? giftImageStoragePort.storeImage(imageStream, imageSize, originalFilename, contentType)
+            : null;
+
+    String[] previousImageUrl = new String[1];
+    LoyaltyGift saved;
+    try {
+      saved =
+          transactionTemplate.execute(
+              status -> {
+                LoyaltyGift gift =
+                    persistencePort
+                        .findByIdAndStoreIdForUpdate(giftId, storeId)
+                        .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
+                previousImageUrl[0] = gift.getImageUrl();
+                String finalImageUrl =
+                    newImageUrl != null
+                        ? newImageUrl
+                        : (command.imageUrl() != null ? command.imageUrl() : gift.getImageUrl());
+                gift.update(
+                    command.name(), command.description(), command.pointsCost(), finalImageUrl);
+                return persistencePort.save(gift);
+              });
+    } catch (RuntimeException ex) {
+      if (uploaded) {
+        deleteImageQuietly(newImageUrl);
       }
-      finalImageUrl =
-          giftImageStoragePort.storeImage(imageStream, imageSize, originalFilename, contentType);
+      throw ex;
     }
 
-    gift.update(command.name(), command.description(), command.pointsCost(), finalImageUrl);
-    return persistencePort.save(gift);
+    // Old image is removed only once the new state is committed.
+    if (uploaded
+        && previousImageUrl[0] != null
+        && !previousImageUrl[0].isBlank()
+        && !previousImageUrl[0].equals(newImageUrl)) {
+      deleteImageQuietly(previousImageUrl[0]);
+    }
+    return saved;
   }
 
   @Override
   public LoyaltyGift adjustStock(
       Long storeId, Long giftId, int delta, Long userId, String userRole) {
     validateStoreOwnership(storeId, userId, userRole);
-    LoyaltyGift gift =
-        persistencePort
-            .findByIdAndStoreId(giftId, storeId)
-            .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
-    gift.adjustStock(delta);
-    return persistencePort.save(gift);
+    return transactionTemplate.execute(
+        status -> {
+          LoyaltyGift gift =
+              persistencePort
+                  .findByIdAndStoreIdForUpdate(giftId, storeId)
+                  .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
+          gift.adjustStock(delta);
+          return persistencePort.save(gift);
+        });
   }
 
   @Override
   public void deleteGift(Long storeId, Long giftId, Long userId, String userRole) {
     validateStoreOwnership(storeId, userId, userRole);
-    LoyaltyGift gift =
-        persistencePort
-            .findByIdAndStoreId(giftId, storeId)
-            .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
-    persistencePort.deleteById(gift.getId());
+    transactionTemplate.executeWithoutResult(
+        status -> {
+          LoyaltyGift gift =
+              persistencePort
+                  .findByIdAndStoreIdForUpdate(giftId, storeId)
+                  .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
+          persistencePort.deleteById(gift.getId());
+        });
   }
 
   @Override
@@ -152,13 +196,24 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
   }
 
   @Override
-  @Transactional(readOnly = true)
   public Optional<GiftImageResource> getGiftImage(Long storeId, Long giftId) {
     LoyaltyGift gift = getGiftById(storeId, giftId);
     if (gift.getImageUrl() == null || gift.getImageUrl().isBlank()) {
       return Optional.empty();
     }
     return giftImageStoragePort.downloadImage(gift.getImageUrl());
+  }
+
+  private void deleteImageQuietly(String imageUrl) {
+    try {
+      giftImageStoragePort.deleteImage(imageUrl);
+    } catch (RuntimeException ex) {
+      // Best-effort cleanup: an orphaned object must never fail a committed business operation.
+      org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GiftCatalogService.class);
+      if (log.isWarnEnabled()) {
+        log.warn("Could not delete gift image {}: {}", imageUrl, ex.getMessage());
+      }
+    }
   }
 
   private void validateStoreOwnership(Long storeId, Long callerUserId, String callerRole) {

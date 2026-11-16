@@ -15,6 +15,12 @@ public interface UserPointsPersistencePort {
 
   Optional<UserPointsAccount> findAccountByClientCode(String clientCode);
 
+  /** Reads the account with a pessimistic write lock (must be called inside a transaction). */
+  Optional<UserPointsAccount> findAccountByUserIdForUpdate(String userId);
+
+  /** Reads the account with a pessimistic write lock (must be called inside a transaction). */
+  Optional<UserPointsAccount> findAccountByClientCodeForUpdate(String clientCode);
+
   List<PointsTransaction> findTransactionsByUserId(String userId);
 
   boolean existsTransactionByReference(String transactionReference);

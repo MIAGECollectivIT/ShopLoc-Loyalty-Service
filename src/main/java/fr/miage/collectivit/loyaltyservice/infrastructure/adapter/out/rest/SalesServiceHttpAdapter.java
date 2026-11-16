@@ -108,6 +108,8 @@ public class SalesServiceHttpAdapter implements SalesTransactionPort {
               .body(new ParameterizedTypeReference<List<UserTransaction>>() {});
 
       return transactions != null ? transactions : Collections.emptyList();
+    } catch (UserTransactionsNotFoundException ex) {
+      return Collections.emptyList();
     } catch (RestClientException ex) {
       if (log.isErrorEnabled()) {
         log.error(
@@ -118,13 +120,17 @@ public class SalesServiceHttpAdapter implements SalesTransactionPort {
     }
   }
 
+  private static final class UserTransactionsNotFoundException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+  }
+
   @SuppressWarnings("PMD.LawOfDemeter")
   private void handleClientError(ClientHttpResponse response, String userId) throws IOException {
     if (response.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
       if (log.isDebugEnabled()) {
         log.debug("No transactions found for user {} on Sales Service (404)", userId);
       }
-      return;
+      throw new UserTransactionsNotFoundException();
     }
     if (log.isWarnEnabled()) {
       log.warn(

@@ -131,9 +131,18 @@ public class UserPointsBalanceController {
           @NotBlank(message = "customerId must not be blank")
           String customerId,
       HttpServletRequest request) {
-    verifyPointsAccess(customerId, request);
+    verifyCustomerPointsAccess(customerId, request);
     UserPointsBalance balance = getUserPointsBalanceQuery.getUserPointsBalance(customerId);
     return ResponseEntity.ok(UserPointsBalanceResponse.fromDomain(balance));
+  }
+
+  private void verifyCustomerPointsAccess(String targetUserId, HttpServletRequest request) {
+    callerAccessGuard.verifyCustomerPointsAccess(
+        targetUserId,
+        request,
+        () ->
+            new UserPointsAccessDeniedException(
+                "Access denied: You can only view your own loyalty points balance."));
   }
 
   private void verifyPointsAccess(String targetUserId, HttpServletRequest request) {

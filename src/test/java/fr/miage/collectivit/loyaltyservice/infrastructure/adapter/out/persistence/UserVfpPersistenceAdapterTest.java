@@ -72,5 +72,11 @@ class UserVfpPersistenceAdapterTest {
         .extracting(UserVfpStatus::getUserId)
         .contains("ACTIVE-1", "ACTIVE-2")
         .doesNotContain("INACTIVE-3");
+
+    List<UserVfpStatus> afterFirst = persistenceAdapter.findActiveVfpUsersAfter("ACTIVE-1", 10);
+    assertThat(afterFirst)
+        .extracting(UserVfpStatus::getUserId)
+        .contains("ACTIVE-2")
+        .doesNotContain("ACTIVE-1", "INACTIVE-3");
   }
 }

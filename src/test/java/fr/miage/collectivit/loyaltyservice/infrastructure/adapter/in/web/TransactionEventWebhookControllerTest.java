@@ -71,7 +71,7 @@ class TransactionEventWebhookControllerTest {
       "Should re-evaluate VFP status and return 200 OK on transaction approved notification")
   void shouldReevaluateVfpOnTransactionApproved() throws Exception {
     String userId = "USER-TRANSACTION-1";
-    String token = generateToken("CLIENT", userId);
+    String token = generateToken("ADMIN", userId);
     Instant now = Instant.parse("2026-11-14T15:00:00Z");
 
     UserVfpStatus updatedStatus = new UserVfpStatus(userId, true, now, null, now);
@@ -110,7 +110,7 @@ class TransactionEventWebhookControllerTest {
   @Test
   @DisplayName("Should return 400 Bad Request when userId is blank")
   void shouldReturnBadRequestWhenUserIdBlank() throws Exception {
-    String token = generateToken("CLIENT", "USER-1");
+    String token = generateToken("ADMIN", "USER-1");
     String payload =
         """
         {
@@ -126,5 +126,26 @@ class TransactionEventWebhookControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(payload))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("Should return 403 Forbidden when caller is CLIENT")
+  void shouldReturnForbiddenWhenCallerIsClient() throws Exception {
+    String token = generateToken("CLIENT", "USER-1");
+    String payload =
+        """
+        {
+          "userId": "USER-1",
+          "transactionId": "TXN-999"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/v1/loyalty/events/transaction-approved")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+        .andExpect(status().isForbidden());
   }
 }

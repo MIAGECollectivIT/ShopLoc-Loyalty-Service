@@ -1,6 +1,7 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.repository;
 
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.entity.UserVfpStatusJpaEntity;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,9 @@ public interface SpringDataUserVfpStatusRepository
     extends JpaRepository<UserVfpStatusJpaEntity, String> {
 
   Page<UserVfpStatusJpaEntity> findByIsVfpTrue(Pageable pageable);
+
+  List<UserVfpStatusJpaEntity> findByIsVfpTrueOrderByUserIdAsc(Pageable pageable);
+
+  List<UserVfpStatusJpaEntity> findByIsVfpTrueAndUserIdGreaterThanOrderByUserIdAsc(
+      String userId, Pageable pageable);
 }
