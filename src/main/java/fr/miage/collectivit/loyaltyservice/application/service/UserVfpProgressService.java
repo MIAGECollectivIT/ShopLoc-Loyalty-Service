@@ -89,22 +89,31 @@ public class UserVfpProgressService implements GetUserVfpProgressQuery {
         .build();
   }
 
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
   private List<UserTransaction> fetchValidTransactions(
       String userId, Instant windowStart, Instant windowEnd) {
-    List<UserTransaction> transactions =
-        salesTransactionPort.getApprovedTransactions(userId, windowStart, windowEnd);
-    if (transactions == null) {
+    try {
+      List<UserTransaction> transactions =
+          salesTransactionPort.getApprovedTransactions(userId, windowStart, windowEnd);
+      if (transactions == null) {
+        return List.of();
+      }
+      return transactions.stream()
+          .filter(t -> t.status() == null || "TRANSACTION_APPROVED".equalsIgnoreCase(t.status()))
+          .filter(
+              t ->
+                  t.createdAt() != null
+                      && !t.createdAt().isBefore(windowStart)
+                      && !t.createdAt().isAfter(windowEnd))
+          .sorted(Comparator.comparing(UserTransaction::createdAt))
+          .toList();
+    } catch (Exception ex) {
+      if (log.isWarnEnabled()) {
+        log.warn(
+            "Could not retrieve approved transactions for user {}: {}", userId, ex.getMessage());
+      }
       return List.of();
     }
-    return transactions.stream()
-        .filter(t -> t.status() == null || "TRANSACTION_APPROVED".equalsIgnoreCase(t.status()))
-        .filter(
-            t ->
-                t.createdAt() != null
-                    && !t.createdAt().isBefore(windowStart)
-                    && !t.createdAt().isAfter(windowEnd))
-        .sorted(Comparator.comparing(UserTransaction::createdAt))
-        .toList();
   }
 
   private boolean resolveIsVfp(String userId) {
