@@ -1,15 +1,22 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fr.miage.collectivit.loyaltyservice.domain.model.GiftImageResource;
+import fr.miage.collectivit.loyaltyservice.domain.port.out.GiftImageStoragePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftCreateRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftStockAdjustRequest;
@@ -18,6 +25,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistenc
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.repository.SpringDataLoyaltyGiftRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
@@ -29,7 +37,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -49,6 +60,7 @@ class GiftCatalogControllerIntegrationTest {
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   @MockitoBean private StoreVerificationPort storeVerificationPort;
+  @MockitoBean private GiftImageStoragePort giftImageStoragePort;
 
   private MockMvc mockMvc;
   private SecretKey signingKey;
@@ -355,6 +367,151 @@ class GiftCatalogControllerIntegrationTest {
 
     mockMvc
         .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId()))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName(
+      "POST /v1/loyalty/stores/{storeId}/gifts (multipart) -> 201 Created with image upload")
+  void shouldCreateGiftWithMultipartImage() throws Exception {
+    Long storeId = 10L;
+    Long merchantId = 42L;
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    when(giftImageStoragePort.storeImage(any(), anyLong(), any(), any()))
+        .thenReturn("http://minio:9000/product-images/gifts/store-10/test.png");
+
+    String token = generateToken("MERCHANT", merchantId);
+    GiftCreateRequest request = new GiftCreateRequest("Tote bag", "Coton bio", 75, 20, null);
+    MockMultipartFile giftPart =
+        new MockMultipartFile(
+            "gift",
+            "gift.json",
+            MediaType.APPLICATION_JSON_VALUE,
+            objectMapper.writeValueAsBytes(request));
+    MockMultipartFile imagePart =
+        new MockMultipartFile(
+            "image",
+            "totebag.png",
+            MediaType.IMAGE_PNG_VALUE,
+            "dummy-image-bytes".getBytes(StandardCharsets.UTF_8));
+
+    mockMvc
+        .perform(
+            multipart("/v1/loyalty/stores/" + storeId + "/gifts")
+                .file(giftPart)
+                .file(imagePart)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.name").value("Tote bag"))
+        .andExpect(
+            jsonPath("$.imageUrl")
+                .value("http://minio:9000/product-images/gifts/store-10/test.png"));
+  }
+
+  @Test
+  @DisplayName(
+      "PUT /v1/loyalty/stores/{storeId}/gifts/{giftId} (multipart) -> 200 OK with new image")
+  void shouldUpdateGiftWithMultipartImage() throws Exception {
+    Long storeId = 10L;
+    Long merchantId = 42L;
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    when(giftImageStoragePort.storeImage(any(), anyLong(), any(), any()))
+        .thenReturn("http://minio:9000/product-images/gifts/store-10/updated.png");
+
+    LoyaltyGiftJpaEntity gift =
+        giftRepository.save(
+            new LoyaltyGiftJpaEntity(
+                null,
+                storeId,
+                "Old Name",
+                "Old Desc",
+                50,
+                10,
+                "http://minio:9000/product-images/gifts/store-10/old.png",
+                true,
+                Instant.now(),
+                Instant.now()));
+
+    String token = generateToken("MERCHANT", merchantId);
+    GiftUpdateRequest request = new GiftUpdateRequest("New Name", "New Desc", 60, null);
+    MockMultipartFile giftPart =
+        new MockMultipartFile(
+            "gift",
+            "gift.json",
+            MediaType.APPLICATION_JSON_VALUE,
+            objectMapper.writeValueAsBytes(request));
+    MockMultipartFile imagePart =
+        new MockMultipartFile(
+            "image",
+            "updated.png",
+            MediaType.IMAGE_PNG_VALUE,
+            "updated-bytes".getBytes(StandardCharsets.UTF_8));
+
+    mockMvc
+        .perform(
+            multipart(HttpMethod.PUT, "/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId())
+                .file(giftPart)
+                .file(imagePart)
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("New Name"))
+        .andExpect(
+            jsonPath("$.imageUrl")
+                .value("http://minio:9000/product-images/gifts/store-10/updated.png"));
+  }
+
+  @Test
+  @DisplayName("GET /v1/loyalty/stores/{storeId}/gifts/{giftId}/image -> 200 OK with binary stream")
+  void shouldStreamGiftImageSuccessfully() throws Exception {
+    Long storeId = 10L;
+    String s3Url = "http://minio:9000/product-images/gifts/store-10/sample.png";
+    LoyaltyGiftJpaEntity gift =
+        giftRepository.save(
+            new LoyaltyGiftJpaEntity(
+                null,
+                storeId,
+                "Gourde",
+                "Gourde isotherme",
+                80,
+                5,
+                s3Url,
+                true,
+                Instant.now(),
+                Instant.now()));
+
+    byte[] fakePng = "PNG-BYTES-SAMPLE".getBytes(StandardCharsets.UTF_8);
+    when(giftImageStoragePort.downloadImage(s3Url))
+        .thenReturn(Optional.of(new GiftImageResource(fakePng, "image/png")));
+
+    mockMvc
+        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId() + "/image"))
+        .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "public, max-age=86400"))
+        .andExpect(content().contentType("image/png"))
+        .andExpect(content().bytes(fakePng));
+  }
+
+  @Test
+  @DisplayName(
+      "GET /v1/loyalty/stores/{storeId}/gifts/{giftId}/image -> 404 when gift has no image")
+  void shouldReturn404WhenGiftHasNoImage() throws Exception {
+    Long storeId = 10L;
+    LoyaltyGiftJpaEntity gift =
+        giftRepository.save(
+            new LoyaltyGiftJpaEntity(
+                null,
+                storeId,
+                "Sans Image",
+                "Desc",
+                40,
+                5,
+                null,
+                true,
+                Instant.now(),
+                Instant.now()));
+
+    mockMvc
+        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId() + "/image"))
         .andExpect(status().isNotFound());
   }
 }

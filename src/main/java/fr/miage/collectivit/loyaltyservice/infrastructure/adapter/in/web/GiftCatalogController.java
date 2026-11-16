@@ -19,9 +19,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,7 +37,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Primary inbound web adapter exposing REST endpoints for the partner store gift catalog (SLE-60).
@@ -45,7 +51,12 @@ import org.springframework.web.bind.annotation.RestController;
     name = "Loyalty Gift Catalog",
     description = "Gestion du catalogue de cadeaux fidélité des commerces")
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({
+  "PMD.ExcessiveImports",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CloseResource",
+  "PMD.LawOfDemeter"
+})
 public class GiftCatalogController {
 
   private static final String ROLE_MERCHANT = "MERCHANT";
@@ -98,10 +109,96 @@ public class GiftCatalogController {
     return ResponseEntity.ok(GiftResponse.fromDomain(gift));
   }
 
-  @PostMapping
+  @GetMapping("/{giftId}/image")
+  @Operation(
+      summary = "Récupérer l'image binaire d'un article cadeau",
+      description =
+          "Retourne l'image binaire stockée sur S3 avec en-tête Cache-Control. Accès public.")
+  @ApiResponses(
+      value = {
+        @ApiResponse(responseCode = "200", description = "Image récupérée"),
+        @ApiResponse(responseCode = "404", description = "Article ou image introuvable")
+      })
+  public ResponseEntity<byte[]> getGiftImage(
+      @Parameter(description = "Identifiant du commerce", example = "10")
+          @PathVariable
+          @Positive(message = "Store identifier must be positive")
+          Long storeId,
+      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          @PathVariable
+          @Positive(message = "Gift identifier must be positive")
+          Long giftId) {
+    return getGiftCatalogQuery
+        .getGiftImage(storeId, giftId)
+        .map(
+            resource ->
+                ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(resource.contentType()))
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                    .body(resource.bytes()))
+        .orElseGet(() -> ResponseEntity.notFound().build());
+  }
+
+  @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
-      summary = "Ajouter un article au catalogue de cadeaux",
+      summary = "Ajouter un article au catalogue de cadeaux avec photo S3 (multipart/form-data)",
+      description =
+          "Crée un nouvel article cadeau avec photo uploadée sur S3. Réservé au commerçant propriétaire ou administrateur.",
+      security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME))
+  @ApiResponses(
+      value = {
+        @ApiResponse(responseCode = "201", description = "Article cadeau créé avec succès"),
+        @ApiResponse(responseCode = "400", description = "Données invalides"),
+        @ApiResponse(responseCode = "401", description = "Non authentifié"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé"),
+        @ApiResponse(responseCode = "404", description = "Commerce introuvable")
+      })
+  public ResponseEntity<GiftResponse> createGift(
+      @Parameter(description = "Identifiant du commerce", example = "10")
+          @PathVariable
+          @Positive(message = "Store identifier must be positive")
+          Long storeId,
+      @Valid @RequestPart("gift") GiftCreateRequest requestDto,
+      @RequestPart(value = "image", required = false) MultipartFile image,
+      HttpServletRequest request) {
+    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
+
+    InputStream imageStream = null;
+    String contentType = null;
+    String originalFilename = null;
+    Long size = null;
+    if (image != null && !image.isEmpty()) {
+      try {
+        imageStream = image.getInputStream();
+        contentType = image.getContentType();
+        originalFilename = image.getOriginalFilename();
+        size = image.getSize();
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Impossible de lire l'image transmise", e);
+      }
+    }
+
+    LoyaltyGift created =
+        manageGiftCatalogUseCase.createGift(
+            storeId,
+            requestDto.toCommand(),
+            imageStream,
+            size != null ? size : 0L,
+            originalFilename,
+            contentType,
+            callerUserId,
+            callerRole);
+    URI location =
+        URI.create(String.format("/v1/loyalty/stores/%d/gifts/%d", storeId, created.getId()));
+    return ResponseEntity.created(location).body(GiftResponse.fromDomain(created));
+  }
+
+  @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+  @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
+  @Operation(
+      summary = "Ajouter un article au catalogue de cadeaux (JSON)",
       description =
           "Crée un nouvel article cadeau pour le commerce. Réservé au commerçant propriétaire ou administrateur.",
       security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME))
@@ -113,7 +210,7 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "403", description = "Accès refusé"),
         @ApiResponse(responseCode = "404", description = "Commerce introuvable")
       })
-  public ResponseEntity<GiftResponse> createGift(
+  public ResponseEntity<GiftResponse> createGiftJson(
       @Parameter(description = "Identifiant du commerce", example = "10")
           @PathVariable
           @Positive(message = "Store identifier must be positive")
@@ -131,11 +228,11 @@ public class GiftCatalogController {
     return ResponseEntity.created(location).body(GiftResponse.fromDomain(created));
   }
 
-  @PutMapping("/{giftId}")
+  @PutMapping(value = "/{giftId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
-      summary = "Modifier un article cadeau",
-      description = "Met à jour les informations d'un article cadeau existant.",
+      summary = "Modifier un article cadeau avec photo S3 (multipart/form-data)",
+      description = "Met à jour les informations d'un article cadeau avec nouvelle photo S3.",
       security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME))
   @ApiResponses(
       value = {
@@ -146,6 +243,64 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Article ou commerce introuvable")
       })
   public ResponseEntity<GiftResponse> updateGift(
+      @Parameter(description = "Identifiant du commerce", example = "10")
+          @PathVariable
+          @Positive(message = "Store identifier must be positive")
+          Long storeId,
+      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          @PathVariable
+          @Positive(message = "Gift identifier must be positive")
+          Long giftId,
+      @Valid @RequestPart("gift") GiftUpdateRequest requestDto,
+      @RequestPart(value = "image", required = false) MultipartFile image,
+      HttpServletRequest request) {
+    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
+
+    InputStream imageStream = null;
+    String contentType = null;
+    String originalFilename = null;
+    Long size = null;
+    if (image != null && !image.isEmpty()) {
+      try {
+        imageStream = image.getInputStream();
+        contentType = image.getContentType();
+        originalFilename = image.getOriginalFilename();
+        size = image.getSize();
+      } catch (IOException e) {
+        throw new IllegalArgumentException("Impossible de lire l'image transmise", e);
+      }
+    }
+
+    LoyaltyGift updated =
+        manageGiftCatalogUseCase.updateGift(
+            storeId,
+            giftId,
+            requestDto.toCommand(),
+            imageStream,
+            size != null ? size : 0L,
+            originalFilename,
+            contentType,
+            callerUserId,
+            callerRole);
+    return ResponseEntity.ok(GiftResponse.fromDomain(updated));
+  }
+
+  @PutMapping(value = "/{giftId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
+  @Operation(
+      summary = "Modifier un article cadeau (JSON)",
+      description = "Met à jour les informations d'un article cadeau existant sans nouvelle photo.",
+      security = @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME))
+  @ApiResponses(
+      value = {
+        @ApiResponse(responseCode = "200", description = "Article cadeau mis à jour"),
+        @ApiResponse(responseCode = "400", description = "Données invalides"),
+        @ApiResponse(responseCode = "401", description = "Non authentifié"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé"),
+        @ApiResponse(responseCode = "404", description = "Article ou commerce introuvable")
+      })
+  public ResponseEntity<GiftResponse> updateGiftJson(
       @Parameter(description = "Identifiant du commerce", example = "10")
           @PathVariable
           @Positive(message = "Store identifier must be positive")
