@@ -31,6 +31,7 @@ import org.springframework.test.context.TestPropertySource;
 @DirtiesContext
 @TestPropertySource(
     properties = {
+      "spring.datasource.url=jdbc:h2:mem:kafka_testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL",
       "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
       "spring.kafka.consumer.auto-offset-reset=earliest",
       "spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer",
