@@ -1,5 +1,8 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
+import fr.miage.collectivit.loyaltyservice.domain.exception.GiftNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientGiftStockException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidGiftException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLoyaltyRateException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.MerchantLoyaltyRateNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.SalesServiceUnavailableException;
@@ -26,6 +29,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({
     InvalidLoyaltyRateException.class,
+    InvalidGiftException.class,
+    InsufficientGiftStockException.class,
     IllegalArgumentException.class,
     HandlerMethodValidationException.class,
     jakarta.validation.ConstraintViolationException.class
@@ -64,7 +69,11 @@ public class GlobalExceptionHandler {
     return buildResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
   }
 
-  @ExceptionHandler({StoreNotFoundException.class, MerchantLoyaltyRateNotFoundException.class})
+  @ExceptionHandler({
+    StoreNotFoundException.class,
+    MerchantLoyaltyRateNotFoundException.class,
+    GiftNotFoundException.class
+  })
   public ResponseEntity<Map<String, Object>> handleNotFoundExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
   }
