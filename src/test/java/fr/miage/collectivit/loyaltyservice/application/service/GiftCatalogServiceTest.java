@@ -326,4 +326,96 @@ class GiftCatalogServiceTest {
 
     assertThat(resource).isEmpty();
   }
+
+  @Test
+  @DisplayName("Should create gift and upload image to S3 when binary stream is provided")
+  void shouldCreateGiftWithImageUpload() {
+    Long storeId = 10L;
+    Long merchantUserId = 42L;
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+
+    byte[] img = "fake-img".getBytes(StandardCharsets.UTF_8);
+    ByteArrayInputStream stream = new ByteArrayInputStream(img);
+    when(giftImageStoragePort.storeImage(any(), any(Long.class), any(), any()))
+        .thenReturn("http://minio:9000/product-images/uploaded.png");
+
+    GiftCreateCommand command =
+        new GiftCreateCommand("Mug ShopLoc", "Mug céramique", 75, 20, null);
+
+    when(persistencePort.save(any(LoyaltyGift.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    LoyaltyGift created =
+        service.createGift(
+            storeId, command, stream, img.length, "mug.png", "image/png", merchantUserId, "MERCHANT");
+
+    assertThat(created.getImageUrl()).isEqualTo("http://minio:9000/product-images/uploaded.png");
+    verify(giftImageStoragePort).storeImage(any(), any(Long.class), any(), any());
+    verify(persistencePort).save(any(LoyaltyGift.class));
+  }
+
+  @Test
+  @DisplayName("Should update gift and replace old image on S3 when new binary stream is provided")
+  void shouldUpdateGiftReplacingOldImage() {
+    Long storeId = 10L;
+    Long giftId = 1L;
+    Long merchantUserId = 42L;
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+
+    LoyaltyGift existing =
+        new LoyaltyGift(
+            giftId, storeId, "Old Name", "Old Desc", 50, 10, "http://minio:9000/product-images/old.png", true, null, null);
+    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+    when(persistencePort.save(any(LoyaltyGift.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    byte[] newImg = "new-img".getBytes(StandardCharsets.UTF_8);
+    ByteArrayInputStream stream = new ByteArrayInputStream(newImg);
+    when(giftImageStoragePort.storeImage(any(), any(Long.class), any(), any()))
+        .thenReturn("http://minio:9000/product-images/new.png");
+
+    GiftUpdateCommand command = new GiftUpdateCommand("New Name", "New Desc", 60, null);
+
+    LoyaltyGift updated =
+        service.updateGift(
+            storeId, giftId, command, stream, newImg.length, "new.png", "image/png", merchantUserId, "MERCHANT");
+
+    assertThat(updated.getImageUrl()).isEqualTo("http://minio:9000/product-images/new.png");
+    verify(giftImageStoragePort).deleteImage("http://minio:9000/product-images/old.png");
+    verify(giftImageStoragePort).storeImage(any(), any(Long.class), any(), any());
+  }
+
+  @Test
+  @DisplayName("Should retrieve binary image resource for existing gift")
+  void shouldGetGiftImageSuccessfully() {
+    Long storeId = 10L;
+    Long giftId = 1L;
+    LoyaltyGift existing =
+        new LoyaltyGift(
+            giftId, storeId, "Mug", "Desc", 50, 10, "http://minio:9000/product-images/mug.png", true, null, null);
+    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+
+    byte[] imgBytes = "bytes".getBytes(StandardCharsets.UTF_8);
+    when(giftImageStoragePort.downloadImage("http://minio:9000/product-images/mug.png"))
+        .thenReturn(Optional.of(new GiftImageResource(imgBytes, "image/png")));
+
+    Optional<GiftImageResource> resource = service.getGiftImage(storeId, giftId);
+
+    assertThat(resource).isPresent();
+    assertThat(resource.get().bytes()).isEqualTo(imgBytes);
+  }
+
+  @Test
+  @DisplayName("Should return empty when gift has no configured image URL")
+  void shouldReturnEmptyWhenGiftHasNoImageUrl() {
+    Long storeId = 10L;
+    Long giftId = 1L;
+    LoyaltyGift existing =
+        new LoyaltyGift(giftId, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
+    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+
+    Optional<GiftImageResource> resource = service.getGiftImage(storeId, giftId);
+
+    assertThat(resource).isEmpty();
+  }
 }
