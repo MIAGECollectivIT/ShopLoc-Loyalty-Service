@@ -76,4 +76,17 @@ public class UserVfpPersistenceAdapter implements UserVfpPersistencePort {
         .map(mapper::toDomain)
         .getContent();
   }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<UserVfpStatus> findActiveVfpUsersAfter(String lastUserId, int size) {
+    int validSize = size > 0 ? size : 50;
+    PageRequest pageRequest = PageRequest.of(0, validSize);
+    List<UserVfpStatusJpaEntity> entities =
+        (lastUserId == null || lastUserId.isBlank())
+            ? statusRepository.findByIsVfpTrueOrderByUserIdAsc(pageRequest)
+            : statusRepository.findByIsVfpTrueAndUserIdGreaterThanOrderByUserIdAsc(
+                lastUserId.trim(), pageRequest);
+    return entities.stream().map(mapper::toDomain).toList();
+  }
 }

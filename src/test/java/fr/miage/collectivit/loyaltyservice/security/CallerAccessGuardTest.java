@@ -112,4 +112,32 @@ class CallerAccessGuardTest {
         .isInstanceOf(UserPointsAccessDeniedException.class)
         .hasMessage("bola denied");
   }
+
+  @Test
+  @DisplayName("Should allow MERCHANT and ADMIN to access customer points, but restrict CLIENT")
+  void shouldAllowMerchantAndAdminOnCustomerPoints() {
+    MockHttpServletRequest merchantRequest = new MockHttpServletRequest();
+    merchantRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ROLE, "MERCHANT");
+    merchantRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "merchant-1");
+
+    assertThatCode(
+            () ->
+                guard.verifyCustomerPointsAccess(
+                    "customer-999",
+                    merchantRequest,
+                    () -> new UserPointsAccessDeniedException("denied")))
+        .doesNotThrowAnyException();
+
+    MockHttpServletRequest clientRequest = new MockHttpServletRequest();
+    clientRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ROLE, "CLIENT");
+    clientRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "client-1");
+
+    assertThatThrownBy(
+            () ->
+                guard.verifyCustomerPointsAccess(
+                    "customer-999",
+                    clientRequest,
+                    () -> new UserPointsAccessDeniedException("denied")))
+        .isInstanceOf(UserPointsAccessDeniedException.class);
+  }
 }

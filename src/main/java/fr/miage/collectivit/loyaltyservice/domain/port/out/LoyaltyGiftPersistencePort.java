@@ -13,6 +13,10 @@ public interface LoyaltyGiftPersistencePort {
 
   Optional<LoyaltyGift> findByIdAndStoreId(Long id, Long storeId);
 
+  default Optional<LoyaltyGift> findByIdAndStoreIdForUpdate(Long id, Long storeId) {
+    return findByIdAndStoreId(id, storeId);
+  }
+
   List<LoyaltyGift> findByStoreId(Long storeId);
 
   List<LoyaltyGift> findActiveByStoreId(Long storeId);

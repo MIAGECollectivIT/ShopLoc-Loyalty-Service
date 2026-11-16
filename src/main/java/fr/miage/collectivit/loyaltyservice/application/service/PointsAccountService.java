@@ -60,26 +60,6 @@ public class PointsAccountService
     this.transactionTemplate = transactionTemplate;
   }
 
-  public PointsAccountService(
-      MerchantLoyaltyRatePersistencePort persistencePort,
-      StoreVerificationPort storeVerificationPort,
-      UserPointsPersistencePort userPointsPersistencePort) {
-    this(persistencePort, storeVerificationPort, userPointsPersistencePort, null);
-  }
-
-  public PointsAccountService(
-      MerchantLoyaltyRatePersistencePort persistencePort,
-      StoreVerificationPort storeVerificationPort,
-      TransactionTemplate transactionTemplate) {
-    this(persistencePort, storeVerificationPort, null, transactionTemplate);
-  }
-
-  public PointsAccountService(
-      MerchantLoyaltyRatePersistencePort persistencePort,
-      StoreVerificationPort storeVerificationPort) {
-    this(persistencePort, storeVerificationPort, null, null);
-  }
-
   @Override
   public MerchantLoyaltyRate configureRate(
       Long storeId,
@@ -87,8 +67,6 @@ public class PointsAccountService
       BigDecimal pointsReward,
       Long callerUserId,
       String callerRole) {
-    // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
-    // network I/O)
     // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
     // network I/O)
     validateStoreOwnership(storeId, callerUserId, callerRole);
@@ -216,13 +194,13 @@ public class PointsAccountService
     }
     if (customerId != null) {
       Optional<UserPointsAccount> byUserId =
-          userPointsPersistencePort.findAccountByUserId(customerId);
+          userPointsPersistencePort.findAccountByUserIdForUpdate(customerId);
       if (byUserId.isPresent()) {
         return byUserId;
       }
     }
     if (clientCode != null) {
-      return userPointsPersistencePort.findAccountByClientCode(clientCode);
+      return userPointsPersistencePort.findAccountByClientCodeForUpdate(clientCode);
     }
     return Optional.empty();
   }

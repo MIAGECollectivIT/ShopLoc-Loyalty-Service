@@ -199,7 +199,8 @@ class PointsAccountServiceTest {
             });
 
     PointsAccountService serviceWithTx =
-        new PointsAccountService(persistencePort, storeVerificationPort, mockTemplate);
+        new PointsAccountService(
+            persistencePort, storeVerificationPort, userPointsPersistencePort, mockTemplate);
 
     when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
     when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
@@ -261,7 +262,7 @@ class PointsAccountServiceTest {
             new BigDecimal("10.0"),
             now.minusSeconds(3600),
             now.minusSeconds(3600));
-    when(userPointsPersistencePort.findAccountByUserId("user-123"))
+    when(userPointsPersistencePort.findAccountByUserIdForUpdate("user-123"))
         .thenReturn(Optional.of(existingAccount));
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -312,7 +313,7 @@ class PointsAccountServiceTest {
             new BigDecimal("10.0"),
             now.minusSeconds(3600),
             now.minusSeconds(3600));
-    when(userPointsPersistencePort.findAccountByUserId("user-123"))
+    when(userPointsPersistencePort.findAccountByUserIdForUpdate("user-123"))
         .thenReturn(Optional.of(existingAccount));
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -339,7 +340,8 @@ class PointsAccountServiceTest {
     when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NEW-ACC"))
         .thenReturn(false);
     when(persistencePort.findByStoreId(99L)).thenReturn(Optional.empty());
-    when(userPointsPersistencePort.findAccountByUserId("user-new")).thenReturn(Optional.empty());
+    when(userPointsPersistencePort.findAccountByUserIdForUpdate("user-new"))
+        .thenReturn(Optional.empty());
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
         .thenAnswer(
             invocation -> {
@@ -393,7 +395,7 @@ class PointsAccountServiceTest {
             new BigDecimal("5.0"),
             now.minusSeconds(3600),
             now.minusSeconds(3600));
-    when(userPointsPersistencePort.findAccountByClientCode("CARD-777"))
+    when(userPointsPersistencePort.findAccountByClientCodeForUpdate("CARD-777"))
         .thenReturn(Optional.of(existingAccount));
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));

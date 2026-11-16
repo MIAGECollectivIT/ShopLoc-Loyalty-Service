@@ -19,10 +19,11 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
-import org.springframework.util.backoff.FixedBackOff;
 
 @EnableKafka
 @Configuration
@@ -89,10 +90,21 @@ public class KafkaConsumerConfig {
     factory.setAutoStartup(autoStartup);
 
     DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
-    DefaultErrorHandler errorHandler =
-        new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
+    DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, retryBackOff());
+    // Poison pills never succeed on retry: send them straight to the DLT.
+    errorHandler.addNotRetryableExceptions(
+        IllegalArgumentException.class, DeserializationException.class);
     factory.setCommonErrorHandler(errorHandler);
 
     return factory;
+  }
+
+  /** Exponential backoff (1s, 2s, 4s, ... capped at 30s) to ride out transient DB/API outages. */
+  private static ExponentialBackOffWithMaxRetries retryBackOff() {
+    ExponentialBackOffWithMaxRetries backOff = new ExponentialBackOffWithMaxRetries(6);
+    backOff.setInitialInterval(1_000L);
+    backOff.setMultiplier(2.0);
+    backOff.setMaxInterval(30_000L);
+    return backOff;
   }
 }

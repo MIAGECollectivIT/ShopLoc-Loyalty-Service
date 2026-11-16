@@ -20,4 +20,6 @@ public interface UserVfpPersistencePort {
   List<VfpHistoryEntry> findHistoryByUserId(String userId);
 
   List<UserVfpStatus> findActiveVfpUsers(int page, int size);
+
+  List<UserVfpStatus> findActiveVfpUsersAfter(String lastUserId, int size);
 }

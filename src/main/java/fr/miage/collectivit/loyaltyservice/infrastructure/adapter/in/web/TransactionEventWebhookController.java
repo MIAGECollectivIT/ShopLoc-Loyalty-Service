@@ -41,7 +41,7 @@ public class TransactionEventWebhookController {
   private final EvaluateUserActivityUseCase evaluateUserActivityUseCase;
 
   @PostMapping("/transaction-approved")
-  @RequiresRole({"CLIENT", "MERCHANT", "ADMIN"})
+  @RequiresRole({"ADMIN"})
   @Operation(
       summary = "Notifier une transaction approuvée pour réévaluer le statut VFP",
       description =

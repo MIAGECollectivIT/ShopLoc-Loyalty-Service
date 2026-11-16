@@ -37,10 +37,6 @@ public class JwtValidatorService {
     return role != null ? role.trim() : EMPTY_ROLE;
   }
 
-  public void addRevokedJtiForTest(String jti) {
-    tokenRevocationService.addRevokedJtiForTest(jti);
-  }
-
   public void refreshRevokedTokens() {
     tokenRevocationService.refreshRevokedTokens();
   }

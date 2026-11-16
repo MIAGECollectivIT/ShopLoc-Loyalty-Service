@@ -38,7 +38,13 @@ class GiftCatalogServiceTest {
     persistencePort = mock(LoyaltyGiftPersistencePort.class);
     storeVerificationPort = mock(StoreVerificationPort.class);
     giftImageStoragePort = mock(GiftImageStoragePort.class);
-    service = new GiftCatalogService(persistencePort, storeVerificationPort, giftImageStoragePort);
+    service =
+        new GiftCatalogService(
+            persistencePort,
+            storeVerificationPort,
+            giftImageStoragePort,
+            new org.springframework.transaction.support.TransactionTemplate(
+                mock(org.springframework.transaction.PlatformTransactionManager.class)));
   }
 
   @Test
@@ -118,7 +124,8 @@ class GiftCatalogServiceTest {
     LoyaltyGift existing =
         new LoyaltyGift(
             giftId, storeId, "Ancien Nom", "Ancienne desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+        .thenReturn(Optional.of(existing));
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -145,7 +152,8 @@ class GiftCatalogServiceTest {
 
     LoyaltyGift existing =
         new LoyaltyGift(giftId, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+        .thenReturn(Optional.of(existing));
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -164,7 +172,8 @@ class GiftCatalogServiceTest {
 
     LoyaltyGift existing =
         new LoyaltyGift(giftId, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+        .thenReturn(Optional.of(existing));
 
     service.deleteGift(storeId, giftId, merchantUserId, "MERCHANT");
 
@@ -256,7 +265,8 @@ class GiftCatalogServiceTest {
             true,
             null,
             null);
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+        .thenReturn(Optional.of(existing));
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 

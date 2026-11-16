@@ -53,4 +53,19 @@ public class CallerAccessGuard {
       throw accessDeniedException.get();
     }
   }
+
+  /**
+   * Verifies access to customer points query: ADMIN and MERCHANT can query any customer, while
+   * CLIENT can only query their own points.
+   */
+  public void verifyCustomerPointsAccess(
+      String targetUserId,
+      HttpServletRequest request,
+      Supplier<? extends RuntimeException> accessDeniedException) {
+    String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
+    if (ROLE_ADMIN.equalsIgnoreCase(callerRole) || "MERCHANT".equalsIgnoreCase(callerRole)) {
+      return;
+    }
+    verifyUserAccess(targetUserId, request, accessDeniedException);
+  }
 }
