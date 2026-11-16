@@ -46,7 +46,7 @@ services:
 s3:
   endpoint: http://localhost:9000
   bucket-name: product-images
-  access-key: devadmin
-  secret-key: devpassword123
+  access-key: dummy-test-key
+  secret-key: dummy-test-secret
   region: us-east-1
   public-base-url: ""
