@@ -17,3 +17,4 @@ CREATE TABLE IF NOT EXISTS loyalty_gifts (
 
 CREATE INDEX IF NOT EXISTS idx_loyalty_gifts_store_id ON loyalty_gifts (store_id);
 CREATE INDEX IF NOT EXISTS idx_loyalty_gifts_store_active ON loyalty_gifts (store_id, is_active);
+

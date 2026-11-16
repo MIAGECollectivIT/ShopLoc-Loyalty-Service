@@ -25,3 +25,4 @@ public record GiftCreateRequest(
         name, description, pointsCost, stock != null ? stock : 0, imageUrl);
   }
 }
+

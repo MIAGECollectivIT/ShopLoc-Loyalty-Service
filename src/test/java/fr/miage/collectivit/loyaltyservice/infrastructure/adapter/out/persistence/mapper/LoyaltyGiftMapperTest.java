@@ -81,3 +81,4 @@ class LoyaltyGiftMapperTest {
     assertThat(mapper.toEntity(null)).isNull();
   }
 }
+

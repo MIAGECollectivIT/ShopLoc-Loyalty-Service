@@ -19,3 +19,4 @@ public interface LoyaltyGiftPersistencePort {
 
   void deleteById(Long id);
 }
+

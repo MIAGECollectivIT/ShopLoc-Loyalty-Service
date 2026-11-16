@@ -14,3 +14,4 @@ public interface ManageGiftCatalogUseCase {
 
   void deleteGift(Long storeId, Long giftId, Long userId, String userRole);
 }
+
