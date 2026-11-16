@@ -1,9 +1,15 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
+import fr.miage.collectivit.loyaltyservice.domain.exception.GiftNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientGiftStockException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidGiftException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLoyaltyRateException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.MerchantLoyaltyRateNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.SalesServiceUnavailableException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UserActivityAccessDeniedException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UserPointsAccessDeniedException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,19 +24,18 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 
 /** Global exception handler for Loyalty Service web adapters. */
 @RestControllerAdvice
+@SuppressWarnings("PMD.TooManyMethods")
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler(InvalidLoyaltyRateException.class)
-  public ResponseEntity<Map<String, Object>> handleInvalidLoyaltyRate(
-      InvalidLoyaltyRateException ex) {
-    return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
-  }
-
   @ExceptionHandler({
+    InvalidLoyaltyRateException.class,
+    InvalidGiftException.class,
+    InsufficientGiftStockException.class,
+    IllegalArgumentException.class,
     HandlerMethodValidationException.class,
     jakarta.validation.ConstraintViolationException.class
   })
-  public ResponseEntity<Map<String, Object>> handleMethodValidationExceptions(Exception ex) {
+  public ResponseEntity<Map<String, Object>> handleBadRequestExceptions(Exception ex) {
     return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
@@ -49,20 +54,27 @@ public class GlobalExceptionHandler {
     return ResponseEntity.badRequest().body(body);
   }
 
-  @ExceptionHandler(StoreAccessDeniedException.class)
-  public ResponseEntity<Map<String, Object>> handleStoreAccessDenied(
-      StoreAccessDeniedException ex) {
+  @ExceptionHandler({
+    StoreAccessDeniedException.class,
+    UserActivityAccessDeniedException.class,
+    UserPointsAccessDeniedException.class
+  })
+  public ResponseEntity<Map<String, Object>> handleAccessDeniedExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
   }
 
-  @ExceptionHandler(StoreNotFoundException.class)
-  public ResponseEntity<Map<String, Object>> handleStoreNotFound(StoreNotFoundException ex) {
-    return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
+  @ExceptionHandler(SalesServiceUnavailableException.class)
+  public ResponseEntity<Map<String, Object>> handleSalesServiceUnavailable(
+      SalesServiceUnavailableException ex) {
+    return buildResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
   }
 
-  @ExceptionHandler(MerchantLoyaltyRateNotFoundException.class)
-  public ResponseEntity<Map<String, Object>> handleMerchantLoyaltyRateNotFound(
-      MerchantLoyaltyRateNotFoundException ex) {
+  @ExceptionHandler({
+    StoreNotFoundException.class,
+    MerchantLoyaltyRateNotFoundException.class,
+    GiftNotFoundException.class
+  })
+  public ResponseEntity<Map<String, Object>> handleNotFoundExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 

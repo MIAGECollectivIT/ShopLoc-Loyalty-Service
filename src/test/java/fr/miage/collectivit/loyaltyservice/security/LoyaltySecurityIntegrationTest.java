@@ -8,6 +8,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Set;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -71,11 +73,18 @@ class LoyaltySecurityIntegrationTest {
         .andExpect(jsonPath("$.status").value("UP"));
   }
 
+  @Autowired private TokenRevocationService tokenRevocationService;
+
   @Test
   @DisplayName("GET /v1/loyalty/status with revoked token -> should return 401 Unauthorized")
   void shouldDenyLoyaltyStatusWithRevokedToken() throws Exception {
     String revokedJti = UUID.randomUUID().toString();
-    jwtValidatorService.addRevokedJtiForTest(revokedJti);
+    @SuppressWarnings("unchecked")
+    Set<String> cached =
+        (Set<String>) ReflectionTestUtils.getField(tokenRevocationService, "cachedRevokedJtis");
+    if (cached != null) {
+      cached.add(revokedJti);
+    }
 
     String token = generateTestToken("CLIENT", "client@shoploc.fr", revokedJti);
     mockMvc

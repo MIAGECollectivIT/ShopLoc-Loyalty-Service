@@ -9,10 +9,15 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     open-in-view: false
   flyway:
     enabled: false
+  kafka:
+    listener:
+      auto-startup: false
+    admin:
+      auto-create: false
 
 management:
   endpoint:
@@ -35,3 +40,13 @@ services:
     url: http://localhost:8089
   store-service:
     url: http://localhost:8089
+  sales-service:
+    url: http://localhost:8089
+
+s3:
+  endpoint: http://localhost:9000
+  bucket-name: product-images
+  access-key: dummy-test-key
+  secret-key: dummy-test-secret
+  region: us-east-1
+  public-base-url: ""

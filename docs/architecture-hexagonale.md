@@ -12,14 +12,14 @@ The primary objective of hexagonal architecture is to **isolate the core busines
 flowchart TB
     subgraph DrivingAdapters["Primary Adapters (Driving / Inbound)"]
         direction TB
-        WebCtrl["REST Controller<br/>MerchantLoyaltyRateController"]
-        KafkaConsumer["Future Kafka Consumer<br/>OrderPlacedEventListener"]
+        WebCtrl["REST Controllers<br/>MerchantLoyaltyRateController<br/>PointsAccountController"]
+        KafkaConsumer["Kafka Consumers<br/>KafkaPhysicalPaymentConsumer (SLE-173)<br/>KafkaTransactionApprovedConsumer"]
     end
 
     subgraph Core["Hexagon: Core Application and Domain"]
         direction TB
         subgraph PortsIn["Primary Ports (Inbound)"]
-            InUseCase["ConfigureMerchantLoyaltyRateUseCase<br/>GetMerchantLoyaltyRateQuery"]
+            InUseCase["ConfigureMerchantLoyaltyRateUseCase<br/>GetMerchantLoyaltyRateQuery<br/>ProcessPhysicalPaymentLoyaltyUseCase<br/>ConsultPointsBalanceUseCase"]
         end
 
         subgraph Application["Application Orchestration"]
@@ -27,12 +27,13 @@ flowchart TB
         end
 
         subgraph Domain["Pure Business Domain (POJO)"]
-            DomainModel["MerchantLoyaltyRate<br/>(Rate business rules)"]
-            DomainExceptions["StoreAccessDeniedException<br/>StoreNotFoundException"]
+            DomainModel["MerchantLoyaltyRate<br/>UserPointsAccount<br/>UserPointsTransaction"]
+            DomainExceptions["StoreAccessDeniedException<br/>StoreNotFoundException<br/>InvalidLoyaltyRateException"]
         end
 
         subgraph PortsOut["Secondary Ports (Outbound)"]
             PersistPort["MerchantLoyaltyRatePersistencePort"]
+            UserPointsPort["UserPointsPersistencePort"]
             StorePort["StoreVerificationPort"]
         end
     end
@@ -41,8 +42,9 @@ flowchart TB
         direction TB
         subgraph Persistence["PostgreSQL Persistence"]
             PersistAdapter["MerchantLoyaltyRatePersistenceAdapter"]
-            SpringDataRepo["SpringDataRepository"]
-            JpaEntity["MerchantLoyaltyRateJpaEntity"]
+            UserPointsAdapter["UserPointsPersistenceAdapter"]
+            SpringDataRepo["SpringDataRepositories"]
+            JpaEntities["JPA Entities (Rates, Accounts, Tx)"]
         end
         subgraph HttpClients["Inter-Service HTTP Clients"]
             StoreHttpAdapter["StoreServiceHttpAdapter<br/>(RestClient -> Store Service)"]
@@ -50,15 +52,18 @@ flowchart TB
     end
 
     WebCtrl -->|Invokes| InUseCase
-    KafkaConsumer -.->|Will invoke| InUseCase
+    KafkaConsumer -->|Invokes| InUseCase
     InUseCase <|.. AppService
     AppService --> DomainModel
     AppService -->|Calls| PersistPort
+    AppService -->|Calls| UserPointsPort
     AppService -->|Calls| StorePort
     PersistAdapter ..|> PersistPort
+    UserPointsAdapter ..|> UserPointsPort
     StoreHttpAdapter ..|> StorePort
     PersistAdapter --> SpringDataRepo
-    PersistAdapter --> JpaEntity
+    UserPointsAdapter --> SpringDataRepo
+    SpringDataRepo --> JpaEntities
 ```
 
 ### The Dependency Inversion Principle
@@ -76,14 +81,19 @@ Source code under `src/main/java/fr/miage/collectivit/loyaltyservice/` strictly 
 fr.miage.collectivit.loyaltyservice/
 ├── domain/                                      # 1. PURE BUSINESS CORE
 │   ├── model/
-│   │   └── MerchantLoyaltyRate.java             # Rich domain entity (conversion calculations, validation)
+│   │   ├── MerchantLoyaltyRate.java             # Rich domain entity (conversion calculations, validation)
+│   │   ├── UserPointsAccount.java               # Customer points account balance
+│   │   └── UserPointsTransaction.java           # Ledger transaction audit record
 │   ├── port/
 │   │   ├── in/                                  # Primary ports (exposed use cases / queries)
 │   │   │   ├── ConfigureMerchantLoyaltyRateUseCase.java
-│   │   │   └── GetMerchantLoyaltyRateQuery.java
+│   │   │   ├── ConsultPointsBalanceUseCase.java
+│   │   │   ├── GetMerchantLoyaltyRateQuery.java
+│   │   │   └── ProcessPhysicalPaymentLoyaltyUseCase.java  # SLE-173: Kafka physical payment ingestion port
 │   │   └── out/                                 # Secondary ports (contracts required by the domain)
 │   │       ├── MerchantLoyaltyRatePersistencePort.java
-│   │       └── StoreVerificationPort.java
+│   │       ├── StoreVerificationPort.java
+│   │       └── UserPointsPersistencePort.java   # Account balance and ledger persistence port
 │   └── exception/                               # Pure domain exceptions
 │       ├── InvalidLoyaltyRateException.java
 │       ├── MerchantLoyaltyRateNotFoundException.java
@@ -92,32 +102,36 @@ fr.miage.collectivit.loyaltyservice/
 │
 ├── application/                                 # 2. APPLICATION ORCHESTRATION
 │   └── service/
-│       └── PointsAccountService.java            # Orchestration service (prescribed by ShopLoc architecture)
+│       └── PointsAccountService.java            # Orchestration service implementing all inbound use cases
 │
 ├── infrastructure/                              # 3. TECHNICAL ADAPTERS
 │   └── adapter/
 │       ├── in/
-│       │   └── web/                             # Primary Web REST adapter
-│       │       ├── MerchantLoyaltyRateController.java
-│       │       ├── GlobalExceptionHandler.java
-│       │       └── dto/
-│       │           ├── MerchantLoyaltyRateRequest.java
-│       │           └── MerchantLoyaltyRateResponse.java
+│       │   ├── web/                             # Primary Web REST adapters
+│       │   │   ├── MerchantLoyaltyRateController.java
+│       │   │   ├── PointsAccountController.java
+│       │   │   ├── GlobalExceptionHandler.java
+│       │   │   └── dto/
+│       │   └── event/                           # Primary Event-Driven Kafka adapters
+│       │       ├── KafkaPhysicalPaymentConsumer.java      # SLE-173 / SLE-36: shoploc.physical-payments consumer
+│       │       └── KafkaTransactionApprovedConsumer.java  # shoploc.transactions.approved consumer
 │       └── out/
 │           ├── persistence/                     # Secondary JPA persistence adapter
 │           │   ├── MerchantLoyaltyRatePersistenceAdapter.java
+│           │   ├── UserPointsPersistenceAdapter.java
 │           │   ├── entity/
-│           │   │   └── MerchantLoyaltyRateJpaEntity.java
 │           │   ├── mapper/
-│           │   │   └── MerchantLoyaltyRateMapper.java
 │           │   └── repository/
-│           │       └── SpringDataMerchantLoyaltyRateRepository.java
 │           └── rest/                            # Secondary HTTP REST client adapter
 │               ├── StoreServiceHttpAdapter.java
 │               └── dto/
-│                   └── StoreDto.java
 │
-└── security/                                    # 4. CROSS-CUTTING SECURITY
+├── config/                                      # 4. INFRASTRUCTURE & BROKER CONFIGURATION
+│   ├── KafkaConsumerConfig.java                 # Kafka ConsumerFactory, error handling & type mappings
+│   ├── KafkaTopicConfig.java                    # Automated topic declaration via KafkaAdmin
+│   └── OpenApiConfig.java                       # Swagger UI OpenAPI 3 configuration
+│
+└── security/                                    # 5. CROSS-CUTTING SECURITY
     ├── RequiresRole.java                        # Declarative RBAC annotation
     ├── JwtAuthInterceptor.java                  # Spring MVC JWT validation interceptor
     ├── JwtKeyProvider.java                      # RS256 asymmetric and HMAC secret key provider
@@ -227,13 +241,68 @@ sequenceDiagram
 
 ---
 
-## 5. Architectural Benefits
+## 5. Sequence Diagram: Physical In-Store Payment & Loyalty Points Ingestion (SLE-36 / SLE-173 / SLE-174 / SLE-175)
+
+The following diagram illustrates the event-driven inbound flow when a physical sale completed event is received from Kafka:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Kafka as Kafka Topic (shoploc.physical-payments)
+    participant Consumer as KafkaPhysicalPaymentConsumer
+    participant PortIn as ProcessPhysicalPaymentLoyaltyUseCase
+    participant Service as PointsAccountService
+    participant RatePort as MerchantLoyaltyRatePersistencePort
+    participant PointsPort as UserPointsPersistencePort
+    participant DB as PostgreSQL (Loyalty DB)
+
+    Kafka->>Consumer: Deliver PhysicalPaymentCompletedEvent
+    Note over Consumer: Deserialized with TypeMapping
+    Consumer->>PortIn: processPhysicalPayment(event)
+    PortIn->>Service: processPhysicalPayment(event)
+
+    Note over Service,DB: 1. Idempotency Check
+    Service->>PointsPort: existsTransactionByReference(txRef)
+    PointsPort->>DB: SELECT count(*) FROM points_transaction WHERE reference = txRef
+    DB-->>PointsPort: 0 (not processed yet)
+    PointsPort-->>Service: false
+
+    Note over Service,DB: 2. Merchant Rate Lookup & Math Calculation
+    Service->>RatePort: findByStoreId(storeId)
+    RatePort->>DB: SELECT * FROM merchant_loyalty_rates WHERE store_id = storeId
+    DB-->>RatePort: MerchantLoyaltyRate (euroAmount=1.00, pointsReward=1.0)
+    RatePort-->>Service: Optional[MerchantLoyaltyRate]
+    Note over Service: Points = amount * (pointsReward / euroAmount)
+
+    Note over Service,DB: 3. Customer Account Resolution & Atomic Ledger Update
+    Service->>PointsPort: findAccountByUserId(customerId) / findAccountByClientCode(clientCode)
+    PointsPort->>DB: SELECT * FROM points_account WHERE user_id = customerId
+    DB-->>PointsPort: UserPointsAccount (currentBalance = 0.0)
+    PointsPort-->>Service: UserPointsAccount
+    
+    Note over Service: Compute new balance = currentBalance + pointsEarned
+    Service->>PointsPort: saveAccount(newBalance)
+    PointsPort->>DB: UPDATE points_account SET balance = 35.5, updated_at = NOW()
+    DB-->>PointsPort: Updated account
+
+    Service->>PointsPort: saveTransaction(UserPointsTransaction: EARN, points=35.5, txRef)
+    PointsPort->>DB: INSERT INTO points_transaction (reference, store_id, type='EARN', points=35.5, ...)
+    DB-->>PointsPort: Transaction committed
+    Service-->>Consumer: Finished successfully
+```
+
+---
+
+## 6. Architectural Benefits
 
 1. **Fast, Isolated Testing**:
    - Domain business rules (`MerchantLoyaltyRateTest`) execute purely in-memory in under 50 ms without loading Spring or external containers.
-   - Application service (`PointsAccountServiceTest`) is tested in isolation with Mockito mocks for `StoreVerificationPort` and `MerchantLoyaltyRatePersistencePort`.
-   - Web adapters (`MerchantLoyaltyRateControllerIntegrationTest`) and REST adapter (`StoreServiceHttpAdapterTest`) are verified with targeted integration tests.
+   - Application service (`PointsAccountServiceTest`) is tested in isolation with Mockito mocks for `StoreVerificationPort`, `MerchantLoyaltyRatePersistencePort`, and `UserPointsPersistencePort`.
+   - Web adapters (`MerchantLoyaltyRateControllerIntegrationTest`, `PointsAccountControllerIntegrationTest`) and REST adapter (`StoreServiceHttpAdapterTest`) are verified with targeted integration tests.
+   - Event-driven Kafka consumers (`PhysicalPaymentKafkaIntegrationTest`) run against real embedded brokers with full message lifecycle assertion.
 2. **Infrastructure Independence**:
    - Swapping persistence to another store or using Redis/Kafka for store verification only requires changing secondary adapters; domain models and controllers remain completely untouched.
 3. **Security by Design**:
    - Strict use-case orchestration guarantees that no merchant can modify a competitor's rate without passing through BOLA checks in the application service.
+4. **Resilience & Asynchronous Decoupling**:
+   - Decoupled event consumption ensures that high-volume in-store checkout lines are never blocked or throttled by loyalty ledger operations.
