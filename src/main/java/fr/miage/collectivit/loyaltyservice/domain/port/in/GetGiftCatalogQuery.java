@@ -10,4 +10,3 @@ public interface GetGiftCatalogQuery {
 
   LoyaltyGift getGiftById(Long storeId, Long giftId);
 }
-

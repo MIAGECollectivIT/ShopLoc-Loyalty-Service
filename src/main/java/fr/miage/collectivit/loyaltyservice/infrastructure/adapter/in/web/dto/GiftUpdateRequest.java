@@ -22,4 +22,3 @@ public record GiftUpdateRequest(
     return new GiftUpdateCommand(name, description, pointsCost, imageUrl);
   }
 }
-

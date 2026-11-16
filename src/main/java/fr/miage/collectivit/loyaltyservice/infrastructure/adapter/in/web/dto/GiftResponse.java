@@ -33,4 +33,3 @@ public record GiftResponse(
         domain.getUpdatedAt());
   }
 }
-

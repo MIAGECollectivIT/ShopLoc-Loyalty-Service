@@ -11,6 +11,8 @@ import java.time.Instant;
 @SuppressWarnings("PMD.NullAssignment")
 public class LoyaltyGift {
 
+  public static final int MAX_GIFT_STOCK = 1_000_000;
+
   private Long id;
   private final Long storeId;
   private String name;
@@ -83,14 +85,18 @@ public class LoyaltyGift {
   }
 
   public void adjustStock(int delta) {
-    int newStock = this.stock + delta;
-    if (newStock < 0) {
+    long newStockLong = (long) this.stock + delta;
+    if (newStockLong < 0) {
       throw new InsufficientGiftStockException(
           String.format(
               "Insufficient gift stock: current is %d, requested deduction is %d.",
               this.stock, Math.abs(delta)));
     }
-    this.stock = newStock;
+    if (newStockLong > MAX_GIFT_STOCK) {
+      throw new InvalidGiftException(
+          String.format("Gift stock cannot exceed %d units.", MAX_GIFT_STOCK));
+    }
+    this.stock = (int) newStockLong;
     this.updatedAt = Instant.now();
   }
 

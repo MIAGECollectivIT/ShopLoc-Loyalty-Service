@@ -258,6 +258,32 @@ class GiftCatalogControllerIntegrationTest {
 
   @Test
   @DisplayName(
+      "PUT /v1/loyalty/stores/{storeId}/gifts/{giftId} -> 403 Forbidden when caller is not store owner (IDOR protection)")
+  void shouldRejectUpdateWhenCallerNotStoreOwner() throws Exception {
+    Long storeId = 10L;
+    Long ownerId = 42L;
+    Long attackerId = 99L;
+    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(ownerId));
+
+    LoyaltyGiftJpaEntity gift =
+        giftRepository.save(
+            new LoyaltyGiftJpaEntity(
+                null, storeId, "Nom", "Desc", 50, 10, null, true, Instant.now(), Instant.now()));
+
+    String attackerToken = generateToken("MERCHANT", attackerId);
+    GiftUpdateRequest request = new GiftUpdateRequest("Hacked", "Hacked desc", 10, null);
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId())
+                .header("Authorization", "Bearer " + attackerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName(
       "PATCH /v1/loyalty/stores/{storeId}/gifts/{giftId}/stock -> 200 OK adjust stock (SLE-193)")
   void shouldAdjustGiftStockSuccessfully() throws Exception {
     Long storeId = 10L;

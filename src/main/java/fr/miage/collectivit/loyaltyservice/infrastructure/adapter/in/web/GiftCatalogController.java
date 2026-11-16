@@ -48,6 +48,9 @@ import org.springframework.web.bind.annotation.RestController;
 @SuppressWarnings({"PMD.ExcessiveImports", "PMD.AvoidDuplicateLiterals"})
 public class GiftCatalogController {
 
+  private static final String ROLE_MERCHANT = "MERCHANT";
+  private static final String ROLE_ADMIN = "ADMIN";
+
   private final ManageGiftCatalogUseCase manageGiftCatalogUseCase;
   private final GetGiftCatalogQuery getGiftCatalogQuery;
 
@@ -96,7 +99,7 @@ public class GiftCatalogController {
   }
 
   @PostMapping
-  @RequiresRole({"MERCHANT", "ADMIN"})
+  @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Ajouter un article au catalogue de cadeaux",
       description =
@@ -129,7 +132,7 @@ public class GiftCatalogController {
   }
 
   @PutMapping("/{giftId}")
-  @RequiresRole({"MERCHANT", "ADMIN"})
+  @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Modifier un article cadeau",
       description = "Met à jour les informations d'un article cadeau existant.",
@@ -163,7 +166,7 @@ public class GiftCatalogController {
   }
 
   @PatchMapping("/{giftId}/stock")
-  @RequiresRole({"MERCHANT", "ADMIN"})
+  @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Ajuster le stock d'un article cadeau (SLE-193)",
       description = "Ajuste le stock dédié (+/- delta) d'un article cadeau.",
@@ -199,7 +202,7 @@ public class GiftCatalogController {
   }
 
   @DeleteMapping("/{giftId}")
-  @RequiresRole({"MERCHANT", "ADMIN"})
+  @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Supprimer un article cadeau",
       description = "Supprime un article cadeau du catalogue.",
