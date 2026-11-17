@@ -1,0 +1,22 @@
+meta {
+  name: 10 - Filtrer le catalogue global par commerce et categorie (Public - SLE-39) - 200
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/gifts?storeId={{storeId}}&category=Restauration
+  body: none
+  auth: none
+}
+
+params:query {
+  storeId: {{storeId}}
+  category: Restauration
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+

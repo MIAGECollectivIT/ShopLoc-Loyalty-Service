@@ -1,0 +1,27 @@
+meta {
+  name: 09 - Rejet creation cadeau sans token - 401
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Cadeau Anonyme",
+    "pointsCost": 50
+  }
+}
+
+assert {
+  res.status: eq 401
+}
+

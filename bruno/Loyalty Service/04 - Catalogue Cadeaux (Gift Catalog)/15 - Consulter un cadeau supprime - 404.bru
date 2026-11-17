@@ -1,0 +1,16 @@
+meta {
+  name: 15 - Consulter un cadeau supprime - 404
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 404
+}
+

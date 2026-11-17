@@ -1,0 +1,34 @@
+meta {
+  name: 04 - Creer un cadeau sans stock (Defaut a 0) - 201
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Badge Collector ShopLoc",
+    "description": "Badge métallique collector",
+    "pointsCost": 20
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.stock: eq 0
+  res.body.id: isDefined
+}
+

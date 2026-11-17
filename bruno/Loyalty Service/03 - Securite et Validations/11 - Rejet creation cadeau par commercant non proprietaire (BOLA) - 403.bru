@@ -1,0 +1,31 @@
+meta {
+  name: 11 - Rejet creation cadeau par commercant non proprietaire (BOLA) - 403
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/9999/gifts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Cadeau IDOR",
+    "pointsCost": 50
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+

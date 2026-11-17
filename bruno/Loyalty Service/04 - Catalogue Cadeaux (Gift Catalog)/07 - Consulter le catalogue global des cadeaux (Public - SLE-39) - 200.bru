@@ -1,0 +1,17 @@
+meta {
+  name: 07 - Consulter le catalogue global des cadeaux (Public - SLE-39) - 200
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/gifts
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+

@@ -3,6 +3,7 @@ package fr.miage.collectivit.loyaltyservice.application.service;
 import fr.miage.collectivit.loyaltyservice.domain.exception.GiftNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.model.CatalogGiftItem;
 import fr.miage.collectivit.loyaltyservice.domain.model.GiftImageResource;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetGiftCatalogQuery;
@@ -24,7 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * SLE-60).
  */
 @Service
-@SuppressWarnings("PMD.AvoidCatchingGenericException")
+@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCatalogQuery {
 
   private static final String ROLE_ADMIN = "ADMIN";
@@ -202,6 +203,40 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
       return Optional.empty();
     }
     return giftImageStoragePort.downloadImage(gift.getImageUrl());
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<CatalogGiftItem> getPublicCatalog(Long storeId, String category) {
+    List<LoyaltyGift> activeGifts =
+        storeId != null
+            ? persistencePort.findActiveByStoreId(storeId)
+            : persistencePort.findAllActive();
+
+    java.util.Map<Long, String> storeNames = new java.util.HashMap<>();
+    java.util.Map<Long, String> storeCategories = new java.util.HashMap<>();
+
+    return activeGifts.stream()
+        .map(
+            gift -> {
+              Long sId = gift.getStoreId();
+              String sName =
+                  storeNames.computeIfAbsent(
+                      sId, id -> storeVerificationPort.findStoreName(id).orElse(null));
+              String sCat =
+                  storeCategories.computeIfAbsent(
+                      sId, id -> storeVerificationPort.findStoreCategory(id).orElse(null));
+              return CatalogGiftItem.of(gift, sName, sCat);
+            })
+        .filter(
+            item -> {
+              if (category == null || category.isBlank()) {
+                return true;
+              }
+              return item.category() != null
+                  && item.category().trim().equalsIgnoreCase(category.trim());
+            })
+        .toList();
   }
 
   private void deleteImageQuietly(String imageUrl) {

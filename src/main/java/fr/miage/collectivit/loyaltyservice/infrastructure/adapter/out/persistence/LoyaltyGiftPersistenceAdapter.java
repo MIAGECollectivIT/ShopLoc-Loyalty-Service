@@ -68,6 +68,11 @@ public class LoyaltyGiftPersistenceAdapter implements LoyaltyGiftPersistencePort
   }
 
   @Override
+  public List<LoyaltyGift> findAllActive() {
+    return repository.findByActiveTrueOrderByIdAsc().stream().map(mapper::toDomain).toList();
+  }
+
+  @Override
   public void deleteById(Long id) {
     if (id != null) {
       repository.deleteById(id);

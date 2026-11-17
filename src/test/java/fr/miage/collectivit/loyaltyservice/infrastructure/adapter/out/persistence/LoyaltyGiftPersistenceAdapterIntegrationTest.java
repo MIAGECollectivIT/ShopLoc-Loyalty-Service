@@ -60,11 +60,13 @@ class LoyaltyGiftPersistenceAdapterIntegrationTest {
     // List by store
     List<LoyaltyGift> storeGifts = persistenceAdapter.findByStoreId(15L);
     assertThat(storeGifts).hasSize(1);
+    assertThat(persistenceAdapter.findAllActive()).hasSize(1);
 
     // Soft delete / deactivate
     toUpdate.deactivate();
     persistenceAdapter.save(toUpdate);
     assertThat(persistenceAdapter.findActiveByStoreId(15L)).isEmpty();
+    assertThat(persistenceAdapter.findAllActive()).isEmpty();
     assertThat(persistenceAdapter.findByStoreId(15L)).hasSize(1);
 
     // Physical delete

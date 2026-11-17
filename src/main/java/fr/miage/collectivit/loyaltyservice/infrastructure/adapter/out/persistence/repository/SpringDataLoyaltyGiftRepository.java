@@ -15,6 +15,8 @@ public interface SpringDataLoyaltyGiftRepository extends JpaRepository<LoyaltyGi
 
   List<LoyaltyGiftJpaEntity> findByStoreIdOrderByIdAsc(Long storeId);
 
+  List<LoyaltyGiftJpaEntity> findByActiveTrueOrderByIdAsc();
+
   List<LoyaltyGiftJpaEntity> findByStoreIdAndActiveTrueOrderByIdAsc(Long storeId);
 
   Optional<LoyaltyGiftJpaEntity> findByIdAndStoreId(Long id, Long storeId);

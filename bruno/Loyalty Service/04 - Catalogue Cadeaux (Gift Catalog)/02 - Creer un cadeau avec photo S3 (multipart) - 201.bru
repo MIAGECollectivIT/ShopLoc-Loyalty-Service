@@ -1,0 +1,28 @@
+meta {
+  name: 02 - Creer un cadeau avec photo S3 (multipart) - 201
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: multipart-form
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+body:multipart-form {
+  gift: {"name":"Tote bag ShopLoc Bio","description":"Sac cabas 100% coton bio","pointsCost":50,"stock":40}
+}
+
+assert {
+  res.status: eq 201
+  res.body.name: eq "Tote bag ShopLoc Bio"
+  res.body.pointsCost: eq 50
+  res.body.stock: eq 40
+  res.body.id: isDefined
+}
+

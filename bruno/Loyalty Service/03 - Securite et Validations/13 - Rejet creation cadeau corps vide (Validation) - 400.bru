@@ -1,0 +1,28 @@
+meta {
+  name: 13 - Rejet creation cadeau corps vide (Validation) - 400
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 400
+}
+
