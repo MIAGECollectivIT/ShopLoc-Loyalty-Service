@@ -42,6 +42,8 @@ services:
     url: http://localhost:8089
   sales-service:
     url: http://localhost:8089
+  parking-gateway:
+    url: http://localhost:8089
 
 s3:
   endpoint: http://localhost:9000
