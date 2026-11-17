@@ -76,6 +76,11 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
     return fetchStore(storeId).map(StoreDto::name);
   }
 
+  @Override
+  public Optional<String> findStoreCategory(Long storeId) {
+    return fetchStore(storeId).map(StoreDto::category);
+  }
+
   private Optional<StoreDto> fetchStore(Long storeId) {
     try {
       Optional<String> bearerToken = resolveBearerToken();

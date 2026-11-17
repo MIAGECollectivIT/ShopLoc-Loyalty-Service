@@ -1,5 +1,6 @@
 package fr.miage.collectivit.loyaltyservice.domain.port.in;
 
+import fr.miage.collectivit.loyaltyservice.domain.model.CatalogGiftItem;
 import fr.miage.collectivit.loyaltyservice.domain.model.GiftImageResource;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import java.util.List;
@@ -13,4 +14,6 @@ public interface GetGiftCatalogQuery {
   LoyaltyGift getGiftById(Long storeId, Long giftId);
 
   Optional<GiftImageResource> getGiftImage(Long storeId, Long giftId);
+
+  List<CatalogGiftItem> getPublicCatalog(Long storeId, String category);
 }

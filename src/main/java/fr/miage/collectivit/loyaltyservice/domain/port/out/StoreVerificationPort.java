@@ -22,4 +22,14 @@ public interface StoreVerificationPort {
   default Optional<String> findStoreName(Long storeId) {
     return Optional.empty();
   }
+
+  /**
+   * Retrieves the commercial category of the specified store, if the store exists.
+   *
+   * @param storeId unique identifier of the store
+   * @return an Optional containing the store category, or empty if the store does not exist
+   */
+  default Optional<String> findStoreCategory(Long storeId) {
+    return Optional.empty();
+  }
 }

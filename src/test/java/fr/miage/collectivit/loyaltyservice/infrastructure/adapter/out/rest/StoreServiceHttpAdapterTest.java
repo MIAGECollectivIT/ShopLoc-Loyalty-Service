@@ -54,11 +54,29 @@ class StoreServiceHttpAdapterTest {
         .andExpect(method(HttpMethod.GET))
         .andRespond(
             withSuccess(
-                "{\"id\":10,\"name\":\"Boulangerie\",\"userId\":42}", MediaType.APPLICATION_JSON));
+                "{\"id\":10,\"name\":\"Boulangerie\",\"category\":\"Alimentation\",\"userId\":42}",
+                MediaType.APPLICATION_JSON));
 
     Optional<String> storeName = adapter.findStoreName(10L);
 
     assertThat(storeName).contains("Boulangerie");
+    mockServer.verify();
+  }
+
+  @Test
+  @DisplayName("Should return store category when store exists on Store Service")
+  void shouldReturnStoreCategoryWhenStoreExists() {
+    mockServer
+        .expect(requestTo("http://store-service:8080/v1/stores/10"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(
+            withSuccess(
+                "{\"id\":10,\"name\":\"Boulangerie\",\"category\":\"Alimentation\",\"userId\":42}",
+                MediaType.APPLICATION_JSON));
+
+    Optional<String> category = adapter.findStoreCategory(10L);
+
+    assertThat(category).contains("Alimentation");
     mockServer.verify();
   }
 
