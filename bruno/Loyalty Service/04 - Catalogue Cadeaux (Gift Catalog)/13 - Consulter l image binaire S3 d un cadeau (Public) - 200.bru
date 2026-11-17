@@ -1,0 +1,18 @@
+meta {
+  name: 13 - Consulter l image binaire S3 d un cadeau (Public) - 200
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}/image
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.headers["content-type"]: matches image/
+  res.headers["cache-control"]: contains max-age=86400
+}
+

@@ -1,0 +1,26 @@
+meta {
+  name: 12 - Modifier l image d un cadeau avec photo S3 (multipart) - 200
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}
+  body: multipart-form
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+body:multipart-form {
+  gift: {"name":"Mug ShopLoc Collector XL","description":"Version finale avec photo mise a jour","pointsCost":90}
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{giftId}}
+  res.body.name: eq "Mug ShopLoc Collector XL"
+}
+

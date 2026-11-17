@@ -1,0 +1,31 @@
+meta {
+  name: 10 - Rejet creation cadeau avec role CLIENT - 403
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Cadeau par Client",
+    "pointsCost": 50
+  }
+}
+
+assert {
+  res.status: eq 403
+}
+

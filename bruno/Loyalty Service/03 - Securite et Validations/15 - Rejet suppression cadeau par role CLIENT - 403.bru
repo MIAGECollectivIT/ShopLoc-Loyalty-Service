@@ -1,0 +1,20 @@
+meta {
+  name: 15 - Rejet suppression cadeau par role CLIENT - 403
+  type: http
+  seq: 15
+}
+
+delete {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{clientToken}}
+}
+
+assert {
+  res.status: eq 403
+}
+

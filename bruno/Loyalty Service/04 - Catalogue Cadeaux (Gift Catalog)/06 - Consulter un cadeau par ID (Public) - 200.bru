@@ -1,0 +1,21 @@
+meta {
+  name: 06 - Consulter un cadeau par ID (Public) - 200
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{giftId}}
+  res.body.storeId: eq {{storeId}}
+  res.body.name: isDefined
+  res.body.pointsCost: isDefined
+  res.body.stock: isDefined
+}
+

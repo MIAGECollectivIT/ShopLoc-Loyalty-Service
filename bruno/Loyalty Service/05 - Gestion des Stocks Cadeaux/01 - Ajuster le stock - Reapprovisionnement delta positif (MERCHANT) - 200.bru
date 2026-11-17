@@ -1,0 +1,32 @@
+meta {
+  name: 01 - Ajuster le stock - Reapprovisionnement delta positif (MERCHANT) - 200
+  type: http
+  seq: 1
+}
+
+patch {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "delta": 15
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{giftId}}
+  res.body.stock: isDefined
+}
+

@@ -1,0 +1,21 @@
+meta {
+  name: 09 - Filtrer le catalogue global par categorie (Public - SLE-39) - 200
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/v1/loyalty/gifts?category=Restauration
+  body: none
+  auth: none
+}
+
+params:query {
+  category: Restauration
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
