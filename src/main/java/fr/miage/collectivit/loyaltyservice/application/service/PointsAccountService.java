@@ -9,11 +9,14 @@ import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransactionType;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserPointsAccount;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.ConfigureMerchantLoyaltyRateUseCase;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetMerchantLoyaltyRateQuery;
+import fr.miage.collectivit.loyaltyservice.domain.port.in.ProcessOrderPaidLoyaltyUseCase;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.ProcessPhysicalPaymentLoyaltyUseCase;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.MerchantLoyaltyRatePersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserPointsPersistencePort;
+import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent;
+import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.StoreOrderBreakdown;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -37,7 +40,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class PointsAccountService
     implements ConfigureMerchantLoyaltyRateUseCase,
         GetMerchantLoyaltyRateQuery,
-        ProcessPhysicalPaymentLoyaltyUseCase {
+        ProcessPhysicalPaymentLoyaltyUseCase,
+        ProcessOrderPaidLoyaltyUseCase {
 
   private static final String ROLE_ADMIN = "ADMIN";
   private static final BigDecimal DEFAULT_EURO_AMOUNT = new BigDecimal("1.00");
@@ -165,6 +169,98 @@ public class PointsAccountService
     if (userPointsPersistencePort != null) {
       UserPointsAccount savedAccount = userPointsPersistencePort.saveAccount(accountToSave);
       recordPointsCredit(savedAccount, event, rate, pointsEarned, accountToSave.balance(), now);
+    }
+  }
+
+  @Override
+  @Transactional
+  public void processOrderPaid(OrderPaidKafkaEvent event) {
+    if (event == null || !hasText(event.orderReference())) {
+      return;
+    }
+
+    String orderRef = event.orderReference().trim();
+    if (isTransactionAlreadyProcessed(orderRef)) {
+      return;
+    }
+
+    BigDecimal totalPointsEarned = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+    if (event.stores() != null && !event.stores().isEmpty()) {
+      for (StoreOrderBreakdown store : event.stores()) {
+        if (store != null && store.storeId() != null && store.amount() != null) {
+          MerchantLoyaltyRate rate = resolveStoreRate(store.storeId());
+          BigDecimal pointsForStore =
+              calculatePoints(store.amount(), rate.getEuroAmount(), rate.getPointsReward());
+          totalPointsEarned = totalPointsEarned.add(pointsForStore);
+        }
+      }
+    } else if (event.totalAmount() != null) {
+      totalPointsEarned =
+          calculatePoints(event.totalAmount(), DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD);
+    }
+
+    if (totalPointsEarned.compareTo(BigDecimal.ZERO) <= 0) {
+      return;
+    }
+
+    String customerId = hasText(event.customerId()) ? event.customerId().trim() : null;
+    String clientCode = hasText(event.clientCode()) ? event.clientCode().trim() : null;
+    Optional<UserPointsAccount> existingAccountOpt = findExistingAccount(customerId, clientCode);
+
+    Instant now = event.timestamp() != null ? event.timestamp() : Instant.now();
+    UserPointsAccount accountToSave =
+        buildAccountToSave(existingAccountOpt, customerId, clientCode, totalPointsEarned, now);
+
+    if (userPointsPersistencePort != null) {
+      UserPointsAccount savedAccount = userPointsPersistencePort.saveAccount(accountToSave);
+      recordOrderPaidPointsCredit(
+          savedAccount, event, totalPointsEarned, accountToSave.balance(), now);
+    }
+  }
+
+  private void recordOrderPaidPointsCredit(
+      UserPointsAccount savedAccount,
+      OrderPaidKafkaEvent event,
+      BigDecimal pointsEarned,
+      BigDecimal newBalance,
+      Instant now) {
+    String orderRef = event.orderReference().trim();
+    Long storeId = null;
+    String storeName = "Multi-commerces";
+    if (event.stores() != null && event.stores().size() == 1) {
+      StoreOrderBreakdown singleStore = event.stores().get(0);
+      storeId = singleStore.storeId();
+      storeName =
+          singleStore.storeName() != null
+              ? singleStore.storeName()
+              : resolveStoreName(singleStore.storeId());
+    } else if (event.stores() != null && event.stores().size() > 1) {
+      storeName = "Multi-commerces (" + event.stores().size() + ")";
+    }
+
+    PointsTransaction transaction =
+        new PointsTransaction(
+            null,
+            orderRef,
+            savedAccount.userId(),
+            storeId,
+            storeName,
+            PointsTransactionType.EARN,
+            pointsEarned,
+            newBalance,
+            "ORDER_CLICK_AND_COLLECT",
+            "Gain de points commande Click & Collect " + orderRef + " - " + storeName,
+            now);
+
+    userPointsPersistencePort.saveTransaction(savedAccount.id(), transaction);
+
+    if (log.isInfoEnabled()) {
+      log.info(
+          "Points credited for click and collect order: orderRef={}, userId={}, pointsEarned={}, newBalance={}",
+          orderRef,
+          savedAccount.userId(),
+          pointsEarned,
+          newBalance);
     }
   }
 
