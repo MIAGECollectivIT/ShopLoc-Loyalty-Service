@@ -57,6 +57,7 @@ public class KafkaConsumerConfig {
     props.put(
         JsonDeserializer.TYPE_MAPPINGS,
         "fr.miage.collectivit.salesservice.dto.event.PhysicalPaymentCompletedEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,"
+            + "fr.miage.collectivit.salesservice.dto.event.OrderPaidKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,"
             + "fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent");
     return new DefaultKafkaConsumerFactory<>(props);
   }
