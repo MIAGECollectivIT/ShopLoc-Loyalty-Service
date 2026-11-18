@@ -15,8 +15,10 @@ public class KafkaOrderPaidConsumer {
 
   private final ProcessOrderPaidLoyaltyUseCase processOrderPaidLoyaltyUseCase;
 
-  @KafkaListener(topics = "${application.kafka.topics.order-payments:shoploc.order-payments}", groupId = "${spring.kafka.consumer.group-id:loyalty-service-group}")
-  @SuppressWarnings({ "PMD.AvoidCatchingGenericException", "PMD.LawOfDemeter" })
+  @KafkaListener(
+      topics = "${application.kafka.topics.order-payments:shoploc.order-payments}",
+      groupId = "${spring.kafka.consumer.group-id:loyalty-service-group}")
+  @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.LawOfDemeter"})
   public void onOrderPaid(OrderPaidKafkaEvent event) {
     if (event == null || event.orderReference() == null || event.orderReference().isBlank()) {
       if (log.isWarnEnabled()) {

@@ -23,65 +23,69 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("Kafka Adapter - KafkaOrderPaidConsumer Unit Tests")
 class KafkaOrderPaidConsumerTest {
 
-    @Mock
-    private ProcessOrderPaidLoyaltyUseCase processOrderPaidLoyaltyUseCase;
+  @Mock private ProcessOrderPaidLoyaltyUseCase processOrderPaidLoyaltyUseCase;
 
-    @InjectMocks
-    private KafkaOrderPaidConsumer consumer;
+  @InjectMocks private KafkaOrderPaidConsumer consumer;
 
-    @Test
-    @DisplayName("Should delegate valid OrderPaidKafkaEvent to use case")
-    void shouldDelegateValidEventToUseCase() {
-        StoreOrderBreakdown breakdown = new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("25.00"));
-        OrderPaidKafkaEvent event = new OrderPaidKafkaEvent(
-                "CMD-CC-20261118-001",
-                "user-123",
-                "k7P9xQ2",
-                new BigDecimal("25.00"),
-                "EUR",
-                List.of(breakdown),
-                Instant.now());
+  @Test
+  @DisplayName("Should delegate valid OrderPaidKafkaEvent to use case")
+  void shouldDelegateValidEventToUseCase() {
+    StoreOrderBreakdown breakdown =
+        new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("25.00"));
+    OrderPaidKafkaEvent event =
+        new OrderPaidKafkaEvent(
+            "CMD-CC-20261118-001",
+            "user-123",
+            "k7P9xQ2",
+            new BigDecimal("25.00"),
+            "EUR",
+            List.of(breakdown),
+            Instant.now());
 
-        consumer.onOrderPaid(event);
+    consumer.onOrderPaid(event);
 
-        verify(processOrderPaidLoyaltyUseCase).processOrderPaid(event);
-    }
+    verify(processOrderPaidLoyaltyUseCase).processOrderPaid(event);
+  }
 
-    @Test
-    @DisplayName("Should ignore event when null or order reference is null or blank")
-    void shouldIgnoreNullOrBlankOrderReference() {
-        consumer.onOrderPaid(null);
+  @Test
+  @DisplayName("Should ignore event when null or order reference is null or blank")
+  void shouldIgnoreNullOrBlankOrderReference() {
+    consumer.onOrderPaid(null);
 
-        OrderPaidKafkaEvent blankRefEvent = new OrderPaidKafkaEvent(
-                "   ", "user-123", "k7P9xQ2", new BigDecimal("25.00"), "EUR", List.of(), Instant.now());
-        consumer.onOrderPaid(blankRefEvent);
+    OrderPaidKafkaEvent blankRefEvent =
+        new OrderPaidKafkaEvent(
+            "   ", "user-123", "k7P9xQ2", new BigDecimal("25.00"), "EUR", List.of(), Instant.now());
+    consumer.onOrderPaid(blankRefEvent);
 
-        OrderPaidKafkaEvent nullRefEvent = new OrderPaidKafkaEvent(
-                null, "user-123", "k7P9xQ2", new BigDecimal("25.00"), "EUR", List.of(), Instant.now());
-        consumer.onOrderPaid(nullRefEvent);
+    OrderPaidKafkaEvent nullRefEvent =
+        new OrderPaidKafkaEvent(
+            null, "user-123", "k7P9xQ2", new BigDecimal("25.00"), "EUR", List.of(), Instant.now());
+    consumer.onOrderPaid(nullRefEvent);
 
-        verify(processOrderPaidLoyaltyUseCase, never()).processOrderPaid(any());
-    }
+    verify(processOrderPaidLoyaltyUseCase, never()).processOrderPaid(any());
+  }
 
-    @Test
-    @DisplayName("Should propagate exceptions to enable Kafka error handler retry and DLQ recovery")
-    void shouldPropagateExceptionsToKafkaErrorHandler() {
-        StoreOrderBreakdown breakdown = new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("25.00"));
-        OrderPaidKafkaEvent event = new OrderPaidKafkaEvent(
-                "CMD-CC-20261118-ERR",
-                "user-123",
-                "k7P9xQ2",
-                new BigDecimal("25.00"),
-                "EUR",
-                List.of(breakdown),
-                Instant.now());
+  @Test
+  @DisplayName("Should propagate exceptions to enable Kafka error handler retry and DLQ recovery")
+  void shouldPropagateExceptionsToKafkaErrorHandler() {
+    StoreOrderBreakdown breakdown =
+        new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("25.00"));
+    OrderPaidKafkaEvent event =
+        new OrderPaidKafkaEvent(
+            "CMD-CC-20261118-ERR",
+            "user-123",
+            "k7P9xQ2",
+            new BigDecimal("25.00"),
+            "EUR",
+            List.of(breakdown),
+            Instant.now());
 
-        doThrow(new IllegalStateException("Database connection pool exhausted"))
-                .when(processOrderPaidLoyaltyUseCase)
-                .processOrderPaid(event);
+    doThrow(new IllegalStateException("Database connection pool exhausted"))
+        .when(processOrderPaidLoyaltyUseCase)
+        .processOrderPaid(event);
 
-        assertThatThrownBy(() -> consumer.onOrderPaid(event))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Database connection pool exhausted");
-    }
+    assertThatThrownBy(() -> consumer.onOrderPaid(event))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Database connection pool exhausted");
+  }
 }
