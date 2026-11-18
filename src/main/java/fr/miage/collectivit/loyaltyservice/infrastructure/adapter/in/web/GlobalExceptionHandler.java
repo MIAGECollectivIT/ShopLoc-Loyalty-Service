@@ -3,13 +3,19 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 import fr.miage.collectivit.loyaltyservice.domain.exception.GiftNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientGiftStockException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidGiftException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLicensePlateException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLoyaltyRateException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.MerchantLoyaltyRateNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.ParkingGatewayUnavailableException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.ParkingSessionAlreadyUsedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.SalesServiceUnavailableException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.UserActivityAccessDeniedException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UserNotVfpException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.UserPointsAccessDeniedException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UsersServiceUnavailableException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.VehicleNotRegisteredException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +37,8 @@ public class GlobalExceptionHandler {
     InvalidLoyaltyRateException.class,
     InvalidGiftException.class,
     InsufficientGiftStockException.class,
+    InvalidLicensePlateException.class,
+    VehicleNotRegisteredException.class,
     IllegalArgumentException.class,
     HandlerMethodValidationException.class,
     jakarta.validation.ConstraintViolationException.class
@@ -57,16 +65,26 @@ public class GlobalExceptionHandler {
   @ExceptionHandler({
     StoreAccessDeniedException.class,
     UserActivityAccessDeniedException.class,
-    UserPointsAccessDeniedException.class
+    UserPointsAccessDeniedException.class,
+    UserNotVfpException.class
   })
   public ResponseEntity<Map<String, Object>> handleAccessDeniedExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
   }
 
-  @ExceptionHandler(SalesServiceUnavailableException.class)
-  public ResponseEntity<Map<String, Object>> handleSalesServiceUnavailable(
-      SalesServiceUnavailableException ex) {
+  @ExceptionHandler({
+    SalesServiceUnavailableException.class,
+    ParkingGatewayUnavailableException.class,
+    UsersServiceUnavailableException.class
+  })
+  public ResponseEntity<Map<String, Object>> handleExternalServiceUnavailable(RuntimeException ex) {
     return buildResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
+  }
+
+  @ExceptionHandler(ParkingSessionAlreadyUsedException.class)
+  public ResponseEntity<Map<String, Object>> handleParkingConflict(
+      ParkingSessionAlreadyUsedException ex) {
+    return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
   }
 
   @ExceptionHandler({
