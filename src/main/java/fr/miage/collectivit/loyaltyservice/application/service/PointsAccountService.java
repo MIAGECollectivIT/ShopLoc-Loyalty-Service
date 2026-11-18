@@ -184,25 +184,38 @@ public class PointsAccountService
       return;
     }
 
-    BigDecimal totalPointsEarned = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
-    if (event.stores() != null && !event.stores().isEmpty()) {
-      for (StoreOrderBreakdown store : event.stores()) {
-        if (store != null && store.storeId() != null && store.amount() != null) {
-          MerchantLoyaltyRate rate = resolveStoreRate(store.storeId());
-          BigDecimal pointsForStore =
-              calculatePoints(store.amount(), rate.getEuroAmount(), rate.getPointsReward());
-          totalPointsEarned = totalPointsEarned.add(pointsForStore);
-        }
-      }
-    } else if (event.totalAmount() != null) {
-      totalPointsEarned =
-          calculatePoints(event.totalAmount(), DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD);
-    }
-
+    BigDecimal totalPointsEarned = computeOrderPoints(event);
     if (totalPointsEarned.compareTo(BigDecimal.ZERO) <= 0) {
       return;
     }
 
+    creditOrderPaidPoints(event, totalPointsEarned);
+  }
+
+  private BigDecimal computeOrderPoints(OrderPaidKafkaEvent event) {
+    if (event.stores() != null && !event.stores().isEmpty()) {
+      return computeStoresBreakdownPoints(event);
+    }
+    if (event.totalAmount() != null) {
+      return calculatePoints(event.totalAmount(), DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD);
+    }
+    return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+  }
+
+  private BigDecimal computeStoresBreakdownPoints(OrderPaidKafkaEvent event) {
+    BigDecimal total = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
+    for (StoreOrderBreakdown store : event.stores()) {
+      if (store != null && store.storeId() != null && store.amount() != null) {
+        MerchantLoyaltyRate rate = resolveStoreRate(store.storeId());
+        BigDecimal points =
+            calculatePoints(store.amount(), rate.getEuroAmount(), rate.getPointsReward());
+        total = total.add(points);
+      }
+    }
+    return total;
+  }
+
+  private void creditOrderPaidPoints(OrderPaidKafkaEvent event, BigDecimal totalPointsEarned) {
     String customerId = hasText(event.customerId()) ? event.customerId().trim() : null;
     String clientCode = hasText(event.clientCode()) ? event.clientCode().trim() : null;
     Optional<UserPointsAccount> existingAccountOpt = findExistingAccount(customerId, clientCode);
