@@ -3,6 +3,7 @@ package fr.miage.collectivit.loyaltyservice.bdd.common;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.rest.ParkingGatewayHttpAdapter;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import javax.crypto.SecretKey;
 public abstract class AbstractScenario {
 
   protected static final String PARKING_SESSIONS_ENDPOINT = "/v1/loyalty/vfp/parking-sessions";
+  protected static final String DAILY_ELIGIBILITY_ENDPOINT = "/v1/loyalty/vfp/daily-eligibility";
   protected static final String MOCK_BASE_URL = "http://localhost:8089";
   protected static final String PARKING_GATEWAY_URL =
       MOCK_BASE_URL + ParkingGatewayHttpAdapter.PARKING_SESSIONS_PATH;
@@ -43,16 +45,17 @@ public abstract class AbstractScenario {
   }
 
   protected String buildParkingTicketConfirmedJson(String licensePlate, String ticketRef) {
+    Instant now = Instant.now();
     return """
         {
           "status": "CONFIRMED",
           "ticketReference": "%s",
           "licensePlate": "%s",
           "durationMinutes": 20,
-          "startedAt": "2026-11-17T14:00:00Z",
-          "expiresAt": "2026-11-17T14:20:00Z"
+          "startedAt": "%s",
+          "expiresAt": "%s"
         }
         """
-        .formatted(ticketRef, licensePlate);
+        .formatted(ticketRef, licensePlate, now.toString(), now.plusSeconds(1200).toString());
   }
 }

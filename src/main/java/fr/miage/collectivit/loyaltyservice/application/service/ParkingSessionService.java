@@ -7,8 +7,10 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.VehicleNotRegistered
 import fr.miage.collectivit.loyaltyservice.domain.model.FrenchLicensePlateNormalizer;
 import fr.miage.collectivit.loyaltyservice.domain.model.ParkingGatewayTicket;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserVfpStatus;
+import fr.miage.collectivit.loyaltyservice.domain.model.VfpDailyEligibility;
 import fr.miage.collectivit.loyaltyservice.domain.model.VfpParkingSession;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.ActivateParkingSessionUseCase;
+import fr.miage.collectivit.loyaltyservice.domain.port.in.GetVfpDailyEligibilityQuery;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingGatewayPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingSessionPersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVehiclesPort;
@@ -19,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +34,11 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
-public class ParkingSessionService implements ActivateParkingSessionUseCase {
+public class ParkingSessionService
+    implements ActivateParkingSessionUseCase, GetVfpDailyEligibilityQuery {
 
   public static final ZoneId BUSINESS_ZONE = ZoneId.of("Europe/Paris");
+  public static final String BENEFIT_PARKING = "PARKING";
   private static final String TICKET_PREFIX = "PARK-";
 
   private final UserVfpPersistencePort userVfpPersistencePort;
@@ -99,6 +104,28 @@ public class ParkingSessionService implements ActivateParkingSessionUseCase {
           saved.getExpiresAt());
     }
     return saved;
+  }
+
+  @Override
+  @SuppressWarnings("PMD.LawOfDemeter")
+  public VfpDailyEligibility getDailyEligibility(String userId) {
+    String cleanUserId = validateUserId(userId);
+    boolean isVfp =
+        userVfpPersistencePort.findByUserId(cleanUserId).map(UserVfpStatus::isVfp).orElse(false);
+
+    Instant now = clock.instant();
+    LocalDate todayParis = LocalDate.ofInstant(now, BUSINESS_ZONE);
+    Optional<VfpParkingSession> todaySession =
+        parkingSessionPersistencePort.findLatestByUserAndDate(cleanUserId, todayParis);
+
+    boolean parkingUsedToday = todaySession.isPresent();
+    VfpParkingSession activeSession =
+        todaySession.filter(session -> session.getExpiresAt().isAfter(now)).orElse(null);
+    boolean eligible = isVfp && !parkingUsedToday;
+    String consumedBenefitType = parkingUsedToday ? BENEFIT_PARKING : null;
+
+    return new VfpDailyEligibility(
+        isVfp, eligible, parkingUsedToday, false, consumedBenefitType, activeSession);
   }
 
   private String validateUserId(String userId) {

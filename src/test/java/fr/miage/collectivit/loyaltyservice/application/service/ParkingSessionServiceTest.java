@@ -14,6 +14,7 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.UserNotVfpException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.VehicleNotRegisteredException;
 import fr.miage.collectivit.loyaltyservice.domain.model.ParkingGatewayTicket;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserVfpStatus;
+import fr.miage.collectivit.loyaltyservice.domain.model.VfpDailyEligibility;
 import fr.miage.collectivit.loyaltyservice.domain.model.VfpParkingSession;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingGatewayPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingSessionPersistencePort;
@@ -204,5 +205,72 @@ class ParkingSessionServiceTest {
 
     assertThat(result.getSessionDate()).isEqualTo(parisDate);
     assertThat(result.getExpiresAt()).isEqualTo(Instant.parse("2026-10-25T01:10:00Z"));
+  }
+
+  @Test
+  @DisplayName("Should return eligible=true when active VFP user has no session today")
+  void shouldReturnEligibleWhenVfpHasNoSessionToday() {
+    UserVfpStatus activeVfp = new UserVfpStatus(USER_ID, true, FIXED_NOW, null, FIXED_NOW);
+    when(userVfpPersistencePort.findByUserId(USER_ID)).thenReturn(Optional.of(activeVfp));
+    when(parkingSessionPersistencePort.findLatestByUserAndDate(USER_ID, FIXED_DATE))
+        .thenReturn(Optional.empty());
+
+    VfpDailyEligibility eligibility = service.getDailyEligibility(USER_ID);
+
+    assertThat(eligibility.isVfp()).isTrue();
+    assertThat(eligibility.eligible()).isTrue();
+    assertThat(eligibility.parkingUsedToday()).isFalse();
+    assertThat(eligibility.consumedBenefitType()).isNull();
+    assertThat(eligibility.activeParkingSession()).isNull();
+  }
+
+  @Test
+  @DisplayName("Should return eligible=false and active session when session is still running")
+  void shouldReturnIneligibleWithActiveSessionWhenRunning() {
+    UserVfpStatus activeVfp = new UserVfpStatus(USER_ID, true, FIXED_NOW, null, FIXED_NOW);
+    VfpParkingSession activeSession =
+        VfpParkingSession.confirmed(
+            USER_ID,
+            "AA-123-BB",
+            "PARK-ACTIVE-01",
+            FIXED_NOW.minusSeconds(300),
+            FIXED_NOW.plusSeconds(900),
+            FIXED_DATE);
+    when(userVfpPersistencePort.findByUserId(USER_ID)).thenReturn(Optional.of(activeVfp));
+    when(parkingSessionPersistencePort.findLatestByUserAndDate(USER_ID, FIXED_DATE))
+        .thenReturn(Optional.of(activeSession));
+
+    VfpDailyEligibility eligibility = service.getDailyEligibility(USER_ID);
+
+    assertThat(eligibility.isVfp()).isTrue();
+    assertThat(eligibility.eligible()).isFalse();
+    assertThat(eligibility.parkingUsedToday()).isTrue();
+    assertThat(eligibility.consumedBenefitType()).isEqualTo("PARKING");
+    assertThat(eligibility.activeParkingSession()).isNotNull();
+    assertThat(eligibility.activeParkingSession().getTicketReference()).isEqualTo("PARK-ACTIVE-01");
+  }
+
+  @Test
+  @DisplayName(
+      "Should return eligible=false and null activeParkingSession when today session expired")
+  void shouldReturnIneligibleWithoutActiveSessionWhenExpired() {
+    UserVfpStatus activeVfp = new UserVfpStatus(USER_ID, true, FIXED_NOW, null, FIXED_NOW);
+    VfpParkingSession expiredSession =
+        VfpParkingSession.confirmed(
+            USER_ID,
+            "AA-123-BB",
+            "PARK-OLD-01",
+            FIXED_NOW.minusSeconds(2400),
+            FIXED_NOW.minusSeconds(1200),
+            FIXED_DATE);
+    when(userVfpPersistencePort.findByUserId(USER_ID)).thenReturn(Optional.of(activeVfp));
+    when(parkingSessionPersistencePort.findLatestByUserAndDate(USER_ID, FIXED_DATE))
+        .thenReturn(Optional.of(expiredSession));
+
+    VfpDailyEligibility eligibility = service.getDailyEligibility(USER_ID);
+
+    assertThat(eligibility.eligible()).isFalse();
+    assertThat(eligibility.parkingUsedToday()).isTrue();
+    assertThat(eligibility.activeParkingSession()).isNull();
   }
 }
