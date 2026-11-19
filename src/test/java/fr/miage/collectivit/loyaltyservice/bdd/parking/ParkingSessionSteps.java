@@ -5,6 +5,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import fr.miage.collectivit.loyaltyservice.application.service.ParkingSessionService;
@@ -171,6 +172,18 @@ public class ParkingSessionSteps extends AbstractScenario {
 
     MockHttpServletRequestBuilder requestBuilder =
         post(PARKING_SESSIONS_ENDPOINT).contentType(MediaType.APPLICATION_JSON).content(payload);
+
+    if (scenarioContext.getJwtToken() != null) {
+      requestBuilder.header(HEADER_AUTHORIZATION, BEARER_PREFIX + scenarioContext.getJwtToken());
+    }
+
+    scenarioContext.setLastResult(mockMvc.perform(requestBuilder));
+  }
+
+  @When("the user checks daily VFP benefit eligibility")
+  public void whenUserChecksDailyEligibility() throws Exception {
+    MockHttpServletRequestBuilder requestBuilder =
+        get(DAILY_ELIGIBILITY_ENDPOINT).accept(MediaType.APPLICATION_JSON);
 
     if (scenarioContext.getJwtToken() != null) {
       requestBuilder.header(HEADER_AUTHORIZATION, BEARER_PREFIX + scenarioContext.getJwtToken());

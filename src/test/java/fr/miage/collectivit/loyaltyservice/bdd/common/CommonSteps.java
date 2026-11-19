@@ -42,6 +42,13 @@ public class CommonSteps extends AbstractScenario {
     scenarioContext.getLastResult().andExpect(jsonPath("$." + fieldPath).value(expectedValue));
   }
 
+  @And("the response JSON flag {string} should be {word}")
+  public void andResponseJsonFlagShouldBe(String fieldPath, String expectedValue) throws Exception {
+    scenarioContext
+        .getLastResult()
+        .andExpect(jsonPath("$." + fieldPath).value(Boolean.parseBoolean(expectedValue)));
+  }
+
   @And("the response JSON field {string} should not be empty")
   public void andResponseJsonFieldShouldNotBeEmpty(String fieldPath) throws Exception {
     scenarioContext.getLastResult().andExpect(jsonPath("$." + fieldPath).isNotEmpty());

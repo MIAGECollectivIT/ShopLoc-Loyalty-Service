@@ -66,3 +66,31 @@ Feature: VFP Free Parking Session Acknowledgment (SLE-78 / SLE-261)
     Given an authenticated user with role "CLIENT"
     When the user requests a free parking session for plate "INVALID-PLATE"
     Then the HTTP response status should be 400
+
+  Scenario: Return daily eligibility as eligible when VFP user has not activated any benefit today
+    Given an authenticated user with role "CLIENT"
+    And the user has an active VFP status
+    When the user checks daily VFP benefit eligibility
+    Then the HTTP response status should be 200
+    And the response JSON flag "isVfp" should be true
+    And the response JSON flag "eligible" should be true
+    And the response JSON flag "parkingUsedToday" should be false
+
+  Scenario: Return daily eligibility as ineligible with active session after parking activation
+    Given an authenticated user with role "CLIENT"
+    And the user has an active VFP status
+    And Users Service returns registered vehicle "AA-123-BB" for the user
+    And the external parking gateway confirms ticket "PARK-ELIG-001" for plate "AA-123-BB"
+    When the user requests a free parking session for plate "AA-123-BB"
+    Then the HTTP response status should be 201
+    When the user checks daily VFP benefit eligibility
+    Then the HTTP response status should be 200
+    And the response JSON flag "eligible" should be false
+    And the response JSON flag "parkingUsedToday" should be true
+    And the response JSON field "consumedBenefitType" should equal "PARKING"
+    And the response JSON field "activeParkingSession.ticketReference" should equal "PARK-ELIG-001"
+
+  Scenario: Deny daily eligibility check when caller is not authenticated
+    Given an unauthenticated user
+    When the user checks daily VFP benefit eligibility
+    Then the HTTP response status should be 401
