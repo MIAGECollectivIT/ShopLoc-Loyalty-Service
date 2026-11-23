@@ -16,12 +16,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
 
 @SpringBootTest
+@Import(LoyaltySecurityIntegrationTest.TestSecurityController.class)
 class LoyaltySecurityIntegrationTest {
 
   private static final String TEST_SECRET =
@@ -90,5 +95,59 @@ class LoyaltySecurityIntegrationTest {
     mockMvc
         .perform(get("/v1/loyalty/status").header("Authorization", "Bearer " + token))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Fail-Closed: unannotated endpoint without token -> should return 401 Unauthorized")
+  void shouldDenyUnannotatedEndpointWithoutToken() throws Exception {
+    mockMvc.perform(get("/test/security/unannotated")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName(
+      "Fail-Closed: unannotated endpoint with invalid token -> should return 401 Unauthorized")
+  void shouldDenyUnannotatedEndpointWithInvalidToken() throws Exception {
+    mockMvc
+        .perform(get("/test/security/unannotated").header("Authorization", "Bearer invalid-token"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Fail-Closed: unannotated endpoint with valid token -> should return 200 OK")
+  void shouldAllowUnannotatedEndpointWithValidToken() throws Exception {
+    String token = generateTestToken("CLIENT", "client@shoploc.fr", UUID.randomUUID().toString());
+    mockMvc
+        .perform(get("/test/security/unannotated").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("Fail-Closed: @PublicEndpoint without token -> should return 200 OK")
+  void shouldAllowPublicEndpointWithoutToken() throws Exception {
+    mockMvc.perform(get("/test/security/public")).andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("Fail-Closed: @PublicEndpoint with valid token -> should return 200 OK")
+  void shouldAllowPublicEndpointWithValidToken() throws Exception {
+    String token = generateTestToken("CLIENT", "client@shoploc.fr", UUID.randomUUID().toString());
+    mockMvc
+        .perform(get("/test/security/public").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk());
+  }
+
+  @RestController
+  @RequestMapping("/test/security")
+  static class TestSecurityController {
+    @GetMapping("/unannotated")
+    public String unannotated() {
+      return "unannotated-ok";
+    }
+
+    @GetMapping("/public")
+    @PublicEndpoint
+    public String publicEndpoint() {
+      return "public-ok";
+    }
   }
 }

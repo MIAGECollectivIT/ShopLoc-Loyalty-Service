@@ -8,6 +8,7 @@ import fr.miage.collectivit.loyaltyservice.domain.port.in.GetMerchantLoyaltyRate
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.MerchantLoyaltyRateRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.MerchantLoyaltyRateResponse;
 import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
+import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
 import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -45,6 +46,7 @@ public class MerchantLoyaltyRateController {
   private final GetMerchantLoyaltyRateQuery getRateQuery;
 
   @GetMapping
+  @PublicEndpoint
   @Operation(
       summary = "Consulter le barème de fidélité d'un commerce",
       description =
