@@ -2,6 +2,7 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetGiftCatalogQuery;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftResponse;
+import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Public REST adapter exposing the global active gift catalog for customers (SLE-39 / SLE-223). */
+@PublicEndpoint
 @Validated
 @RestController
 @RequestMapping("/v1/loyalty/gifts")
