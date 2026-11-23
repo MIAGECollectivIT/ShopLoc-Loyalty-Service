@@ -7,6 +7,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistenc
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.repository.SpringDataLoyaltyGiftRepository;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -26,43 +27,43 @@ public class LoyaltyGiftPersistenceAdapter implements LoyaltyGiftPersistencePort
   }
 
   @Override
-  public Optional<LoyaltyGift> findById(Long id) {
-    if (id == null) {
+  public Optional<LoyaltyGift> findByUid(UUID uid) {
+    if (uid == null) {
       return Optional.empty();
     }
-    return repository.findById(id).map(mapper::toDomain);
+    return repository.findByUid(uid).map(mapper::toDomain);
   }
 
   @Override
-  public Optional<LoyaltyGift> findByIdAndStoreId(Long id, Long storeId) {
-    if (id == null || storeId == null) {
+  public Optional<LoyaltyGift> findByUidAndStoreUid(UUID uid, UUID storeUid) {
+    if (uid == null || storeUid == null) {
       return Optional.empty();
     }
-    return repository.findByIdAndStoreId(id, storeId).map(mapper::toDomain);
+    return repository.findByUidAndStoreUid(uid, storeUid).map(mapper::toDomain);
   }
 
   @Override
-  public Optional<LoyaltyGift> findByIdAndStoreIdForUpdate(Long id, Long storeId) {
-    if (id == null || storeId == null) {
+  public Optional<LoyaltyGift> findByUidAndStoreUidForUpdate(UUID uid, UUID storeUid) {
+    if (uid == null || storeUid == null) {
       return Optional.empty();
     }
-    return repository.findByIdAndStoreIdForUpdate(id, storeId).map(mapper::toDomain);
+    return repository.findByUidAndStoreUidForUpdate(uid, storeUid).map(mapper::toDomain);
   }
 
   @Override
-  public List<LoyaltyGift> findByStoreId(Long storeId) {
-    if (storeId == null) {
+  public List<LoyaltyGift> findByStoreUid(UUID storeUid) {
+    if (storeUid == null) {
       return List.of();
     }
-    return repository.findByStoreIdOrderByIdAsc(storeId).stream().map(mapper::toDomain).toList();
+    return repository.findByStoreUidOrderByIdAsc(storeUid).stream().map(mapper::toDomain).toList();
   }
 
   @Override
-  public List<LoyaltyGift> findActiveByStoreId(Long storeId) {
-    if (storeId == null) {
+  public List<LoyaltyGift> findActiveByStoreUid(UUID storeUid) {
+    if (storeUid == null) {
       return List.of();
     }
-    return repository.findByStoreIdAndActiveTrueOrderByIdAsc(storeId).stream()
+    return repository.findByStoreUidAndActiveTrueOrderByIdAsc(storeUid).stream()
         .map(mapper::toDomain)
         .toList();
   }
@@ -73,9 +74,9 @@ public class LoyaltyGiftPersistenceAdapter implements LoyaltyGiftPersistencePort
   }
 
   @Override
-  public void deleteById(Long id) {
-    if (id != null) {
-      repository.deleteById(id);
+  public void deleteByUid(UUID uid) {
+    if (uid != null) {
+      repository.findByUid(uid).ifPresent(repository::delete);
     }
   }
 }

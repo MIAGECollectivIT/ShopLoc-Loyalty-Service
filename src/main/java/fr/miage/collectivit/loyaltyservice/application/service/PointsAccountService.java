@@ -22,6 +22,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,17 +67,17 @@ public class PointsAccountService
 
   @Override
   public MerchantLoyaltyRate configureRate(
-      Long storeId,
+      UUID storeUid,
       BigDecimal euroAmount,
       BigDecimal pointsReward,
-      Long callerUserId,
+      UUID callerUserId,
       String callerRole) {
     // Phase 1: External validation (out-of-transaction to avoid holding DB connections during
     // network I/O)
-    validateStoreOwnership(storeId, callerUserId, callerRole);
+    validateStoreOwnership(storeUid, callerUserId, callerRole);
 
     // Phase 2: Transactional read/write persistence with concurrency recovery
-    return executeInTransaction(() -> persistRate(storeId, euroAmount, pointsReward));
+    return executeInTransaction(() -> persistRate(storeUid, euroAmount, pointsReward));
   }
 
   private <T> T executeInTransaction(Supplier<T> action) {
@@ -87,10 +88,10 @@ public class PointsAccountService
   }
 
   private MerchantLoyaltyRate persistRate(
-      Long storeId, BigDecimal euroAmount, BigDecimal pointsReward) {
+      UUID storeUid, BigDecimal euroAmount, BigDecimal pointsReward) {
     try {
       return persistencePort
-          .findByStoreId(storeId)
+          .findByStoreUid(storeUid)
           .map(
               existing -> {
                 existing.updateRates(euroAmount, pointsReward);
@@ -99,13 +100,13 @@ public class PointsAccountService
           .orElseGet(
               () -> {
                 MerchantLoyaltyRate newRate =
-                    new MerchantLoyaltyRate(storeId, euroAmount, pointsReward);
+                    new MerchantLoyaltyRate(storeUid, euroAmount, pointsReward);
                 return persistencePort.save(newRate);
               });
     } catch (DataIntegrityViolationException ex) {
       // Concurrency recovery: another transaction concurrently created the rate for this store
       return persistencePort
-          .findByStoreId(storeId)
+          .findByStoreUid(storeUid)
           .map(
               existing -> {
                 existing.updateRates(euroAmount, pointsReward);
@@ -117,28 +118,28 @@ public class PointsAccountService
 
   @Override
   @Transactional(readOnly = true)
-  public MerchantLoyaltyRate getRateByStoreId(Long storeId) {
+  public MerchantLoyaltyRate getRateByStoreUid(UUID storeUid) {
     return persistencePort
-        .findByStoreId(storeId)
-        .orElseThrow(() -> new MerchantLoyaltyRateNotFoundException(storeId));
+        .findByStoreUid(storeUid)
+        .orElseThrow(() -> new MerchantLoyaltyRateNotFoundException(storeUid));
   }
 
-  private void validateStoreOwnership(Long storeId, Long callerUserId, String callerRole) {
+  private void validateStoreOwnership(UUID storeUid, UUID callerUserId, String callerRole) {
     if (ROLE_ADMIN.equalsIgnoreCase(callerRole)) {
       return;
     }
     if (callerUserId == null) {
       throw new StoreAccessDeniedException(
-          "Missing user identifier for modifying store " + storeId);
+          "Missing user identifier for modifying store " + storeUid);
     }
-    Long ownerId =
+    UUID ownerUid =
         storeVerificationPort
-            .findStoreOwnerId(storeId)
-            .orElseThrow(() -> new StoreNotFoundException(storeId));
+            .findStoreOwnerUid(storeUid)
+            .orElseThrow(() -> new StoreNotFoundException(storeUid));
 
-    if (!ownerId.equals(callerUserId)) {
+    if (!ownerUid.equals(callerUserId)) {
       throw new StoreAccessDeniedException(
-          "Access denied: you are not the owner of store " + storeId);
+          "Access denied: you are not the owner of store " + storeUid);
     }
   }
 
@@ -154,7 +155,7 @@ public class PointsAccountService
       return;
     }
 
-    MerchantLoyaltyRate rate = resolveStoreRate(event.storeId());
+    MerchantLoyaltyRate rate = resolveStoreRate(event.storeUid());
     BigDecimal pointsEarned =
         calculatePoints(event.amount(), rate.getEuroAmount(), rate.getPointsReward());
 
@@ -205,8 +206,8 @@ public class PointsAccountService
   private BigDecimal computeStoresBreakdownPoints(OrderPaidKafkaEvent event) {
     BigDecimal total = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
     for (StoreOrderBreakdown store : event.stores()) {
-      if (store != null && store.storeId() != null && store.amount() != null) {
-        MerchantLoyaltyRate rate = resolveStoreRate(store.storeId());
+      if (store != null && store.storeUid() != null && store.amount() != null) {
+        MerchantLoyaltyRate rate = resolveStoreRate(store.storeUid());
         BigDecimal points =
             calculatePoints(store.amount(), rate.getEuroAmount(), rate.getPointsReward());
         total = total.add(points);
@@ -238,15 +239,15 @@ public class PointsAccountService
       BigDecimal newBalance,
       Instant now) {
     String orderRef = event.orderReference().trim();
-    Long storeId = null;
+    UUID storeUid = null;
     String storeName = "Multi-commerces";
     if (event.stores() != null && event.stores().size() == 1) {
       StoreOrderBreakdown singleStore = event.stores().get(0);
-      storeId = singleStore.storeId();
+      storeUid = singleStore.storeUid();
       storeName =
           singleStore.storeName() != null
               ? singleStore.storeName()
-              : resolveStoreName(singleStore.storeId());
+              : resolveStoreName(singleStore.storeUid());
     } else if (event.stores() != null && event.stores().size() > 1) {
       storeName = "Multi-commerces (" + event.stores().size() + ")";
     }
@@ -254,9 +255,10 @@ public class PointsAccountService
     PointsTransaction transaction =
         new PointsTransaction(
             null,
+            null,
             orderRef,
             savedAccount.userId(),
-            storeId,
+            storeUid,
             storeName,
             PointsTransactionType.EARN,
             pointsEarned,
@@ -290,11 +292,11 @@ public class PointsAccountService
     return false;
   }
 
-  private MerchantLoyaltyRate resolveStoreRate(Long storeId) {
+  private MerchantLoyaltyRate resolveStoreRate(UUID storeUid) {
     return persistencePort
-        .findByStoreId(storeId)
+        .findByStoreUid(storeUid)
         .orElseGet(
-            () -> new MerchantLoyaltyRate(storeId, DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD));
+            () -> new MerchantLoyaltyRate(storeUid, DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD));
   }
 
   private Optional<UserPointsAccount> findExistingAccount(String customerId, String clientCode) {
@@ -348,14 +350,15 @@ public class PointsAccountService
     String rateApplied =
         String.format(
             Locale.ROOT, "%.2f EUR = %.1f PTS", rate.getEuroAmount(), rate.getPointsReward());
-    String storeName = resolveStoreName(event.storeId());
+    String storeName = resolveStoreName(event.storeUid());
 
     PointsTransaction transaction =
         new PointsTransaction(
             null,
+            null,
             txRef,
             savedAccount.userId(),
-            event.storeId(),
+            event.storeUid(),
             storeName,
             PointsTransactionType.EARN,
             pointsEarned,
@@ -368,23 +371,23 @@ public class PointsAccountService
 
     if (log.isInfoEnabled()) {
       log.info(
-          "Points credited for physical payment: txRef={}, userId={}, storeId={}, pointsEarned={}, newBalance={}",
+          "Points credited for physical payment: txRef={}, userId={}, storeUid={}, pointsEarned={}, newBalance={}",
           txRef,
           savedAccount.userId(),
-          event.storeId(),
+          event.storeUid(),
           pointsEarned,
           newBalance);
     }
   }
 
-  private String resolveStoreName(Long storeId) {
+  private String resolveStoreName(UUID storeUid) {
     if (storeVerificationPort != null) {
       return storeVerificationPort
-          .findStoreName(storeId)
+          .findStoreName(storeUid)
           .filter(this::hasText)
-          .orElse("Magasin #" + storeId);
+          .orElse("Magasin #" + storeUid);
     }
-    return "Magasin #" + storeId;
+    return "Magasin #" + storeUid;
   }
 
   public BigDecimal calculatePoints(

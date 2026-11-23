@@ -11,6 +11,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistenc
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.repository.SpringDataLoyaltyGiftRepository;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,9 @@ import org.springframework.web.context.WebApplicationContext;
 @DisplayName("Web Adapter - PublicGiftCatalogController Integration Test (SLE-39 / SLE-223)")
 class PublicGiftCatalogControllerIntegrationTest {
 
+  private static final UUID STORE_UID_10 = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+  private static final UUID STORE_UID_20 = UUID.fromString("550e8400-e29b-41d4-a716-446655440020");
+
   @Autowired private WebApplicationContext webApplicationContext;
   @Autowired private SpringDataLoyaltyGiftRepository giftRepository;
 
@@ -40,11 +44,36 @@ class PublicGiftCatalogControllerIntegrationTest {
     mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     giftRepository.deleteAll();
 
-    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
-    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
+    when(storeVerificationPort.findStoreName(STORE_UID_10))
+        .thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID_10))
+        .thenReturn(Optional.of("Alimentation"));
 
-    when(storeVerificationPort.findStoreName(20L)).thenReturn(Optional.of("Librairie Moderne"));
-    when(storeVerificationPort.findStoreCategory(20L)).thenReturn(Optional.of("Culture"));
+    when(storeVerificationPort.findStoreName(STORE_UID_20))
+        .thenReturn(Optional.of("Librairie Moderne"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID_20)).thenReturn(Optional.of("Culture"));
+  }
+
+  private LoyaltyGiftJpaEntity buildGift(
+      UUID storeUid,
+      String name,
+      String description,
+      int pointsCost,
+      int stock,
+      String imageUrl,
+      boolean active) {
+    return LoyaltyGiftJpaEntity.builder()
+        .uid(UUID.randomUUID())
+        .storeUid(storeUid)
+        .name(name)
+        .description(description)
+        .pointsCost(pointsCost)
+        .stock(stock)
+        .imageUrl(imageUrl)
+        .active(active)
+        .createdAt(Instant.now())
+        .updatedAt(Instant.now())
+        .build();
   }
 
   @Test
@@ -52,43 +81,27 @@ class PublicGiftCatalogControllerIntegrationTest {
       "GET /v1/loyalty/gifts -> should retrieve all active gifts publicly without authentication")
   void shouldRetrieveAllActiveGiftsPubliclyWithoutAuthentication() throws Exception {
     LoyaltyGiftJpaEntity activeGift1 =
-        new LoyaltyGiftJpaEntity(
-            null,
-            10L,
+        buildGift(
+            STORE_UID_10,
             "Croissant Offert",
             "Un bon croissant pur beurre",
             50,
             25,
             "https://cdn.shoploc.fr/croissant.png",
-            true,
-            Instant.now(),
-            Instant.now());
+            true);
 
     LoyaltyGiftJpaEntity activeGift2 =
-        new LoyaltyGiftJpaEntity(
-            null,
-            20L,
+        buildGift(
+            STORE_UID_20,
             "Livre de poche",
             "Roman au choix",
             120,
             10,
             "https://cdn.shoploc.fr/livre.png",
-            true,
-            Instant.now(),
-            Instant.now());
+            true);
 
     LoyaltyGiftJpaEntity inactiveGift =
-        new LoyaltyGiftJpaEntity(
-            null,
-            10L,
-            "Ancien cadeau épuisé",
-            "Non disponible",
-            200,
-            0,
-            null,
-            false,
-            Instant.now(),
-            Instant.now());
+        buildGift(STORE_UID_10, "Ancien cadeau épuisé", "Non disponible", 200, 0, null, false);
 
     giftRepository.save(activeGift1);
     giftRepository.save(activeGift2);
@@ -98,98 +111,60 @@ class PublicGiftCatalogControllerIntegrationTest {
         .perform(get("/v1/loyalty/gifts"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].uid").isNotEmpty())
         .andExpect(jsonPath("$[0].name").value("Croissant Offert"))
-        .andExpect(jsonPath("$[0].storeId").value(10))
+        .andExpect(jsonPath("$[0].storeUid").value(STORE_UID_10.toString()))
         .andExpect(jsonPath("$[0].storeName").value("Boulangerie Paul"))
         .andExpect(jsonPath("$[0].category").value("Alimentation"))
         .andExpect(jsonPath("$[0].pointsCost").value(50))
         .andExpect(jsonPath("$[0].stock").value(25))
         .andExpect(jsonPath("$[0].imageUrl").value("https://cdn.shoploc.fr/croissant.png"))
         .andExpect(jsonPath("$[0].active").value(true))
+        .andExpect(jsonPath("$[1].uid").isNotEmpty())
         .andExpect(jsonPath("$[1].name").value("Livre de poche"))
-        .andExpect(jsonPath("$[1].storeId").value(20))
+        .andExpect(jsonPath("$[1].storeUid").value(STORE_UID_20.toString()))
         .andExpect(jsonPath("$[1].storeName").value("Librairie Moderne"))
         .andExpect(jsonPath("$[1].category").value("Culture"))
         .andExpect(jsonPath("$[1].pointsCost").value(120));
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/gifts?storeId=10 -> should filter gifts by partner store")
-  void shouldFilterGiftsByStoreId() throws Exception {
-    LoyaltyGiftJpaEntity giftStore10 =
-        new LoyaltyGiftJpaEntity(
-            null,
-            10L,
-            "Croissant Offert",
-            "Un bon croissant",
-            50,
-            10,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-
-    LoyaltyGiftJpaEntity giftStore20 =
-        new LoyaltyGiftJpaEntity(
-            null,
-            20L,
-            "Marque-page",
-            "Marque-page collector",
-            30,
-            50,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-
-    giftRepository.save(giftStore10);
-    giftRepository.save(giftStore20);
+  @DisplayName("GET /v1/loyalty/gifts?storeUid=... -> should filter gifts by partner store")
+  void shouldFilterGiftsByStoreUid() throws Exception {
+    giftRepository.save(
+        buildGift(STORE_UID_10, "Croissant Offert", "Un bon croissant", 50, 10, null, true));
+    giftRepository.save(
+        buildGift(STORE_UID_20, "Marque-page", "Marque-page collector", 30, 50, null, true));
 
     mockMvc
-        .perform(get("/v1/loyalty/gifts").param("storeId", "10"))
+        .perform(get("/v1/loyalty/gifts").param("storeUid", STORE_UID_10.toString()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
-        .andExpect(jsonPath("$[0].storeId").value(10))
+        .andExpect(jsonPath("$[0].storeUid").value(STORE_UID_10.toString()))
         .andExpect(jsonPath("$[0].name").value("Croissant Offert"));
+  }
+
+  @Test
+  @DisplayName("GET /v1/loyalty/gifts?storeUid=not-a-uuid -> should return 400 Bad Request")
+  void shouldRejectNonUuidStoreUidParam() throws Exception {
+    mockMvc
+        .perform(get("/v1/loyalty/gifts").param("storeUid", "not-a-uuid"))
+        .andExpect(status().isBadRequest());
   }
 
   @Test
   @DisplayName("GET /v1/loyalty/gifts?category=Culture -> should filter gifts by merchant category")
   void shouldFilterGiftsByCategory() throws Exception {
-    LoyaltyGiftJpaEntity giftFood =
-        new LoyaltyGiftJpaEntity(
-            null,
-            10L,
-            "Croissant Offert",
-            "Un bon croissant",
-            50,
-            10,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-
-    LoyaltyGiftJpaEntity giftCulture =
-        new LoyaltyGiftJpaEntity(
-            null,
-            20L,
-            "Marque-page",
-            "Marque-page collector",
-            30,
-            50,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-
-    giftRepository.save(giftFood);
-    giftRepository.save(giftCulture);
+    giftRepository.save(
+        buildGift(STORE_UID_10, "Croissant Offert", "Un bon croissant", 50, 10, null, true));
+    giftRepository.save(
+        buildGift(STORE_UID_20, "Marque-page", "Marque-page collector", 30, 50, null, true));
 
     mockMvc
         .perform(get("/v1/loyalty/gifts").param("category", "Culture"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
-        .andExpect(jsonPath("$[0].storeId").value(20))
+        .andExpect(jsonPath("$[0].storeUid").value(STORE_UID_20.toString()))
         .andExpect(jsonPath("$[0].category").value("Culture"))
         .andExpect(jsonPath("$[0].name").value("Marque-page"));
   }
@@ -197,20 +172,8 @@ class PublicGiftCatalogControllerIntegrationTest {
   @Test
   @DisplayName("GET /v1/loyalty/gifts with mismatched filter -> should return empty list")
   void shouldReturnEmptyListWhenNoGiftsMatch() throws Exception {
-    LoyaltyGiftJpaEntity giftFood =
-        new LoyaltyGiftJpaEntity(
-            null,
-            10L,
-            "Croissant Offert",
-            "Un bon croissant",
-            50,
-            10,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-
-    giftRepository.save(giftFood);
+    giftRepository.save(
+        buildGift(STORE_UID_10, "Croissant Offert", "Un bon croissant", 50, 10, null, true));
 
     mockMvc
         .perform(get("/v1/loyalty/gifts").param("category", "Informatique"))

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +20,12 @@ class LoyaltyGiftPersistenceAdapterIntegrationTest {
   @Autowired private LoyaltyGiftPersistenceAdapter persistenceAdapter;
 
   @Test
-  @DisplayName("Should save, find by id and storeId, update and delete a loyalty gift")
+  @DisplayName("Should save, find by uid and storeUid, update and delete a loyalty gift")
   void shouldPerformCrudOperationsOnLoyaltyGift() {
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440015");
     LoyaltyGift gift =
         new LoyaltyGift(
-            15L,
+            storeUid,
             "Gourde Inox ShopLoc",
             "Gourde 500ml isotherme",
             120,
@@ -33,13 +35,14 @@ class LoyaltyGiftPersistenceAdapterIntegrationTest {
     LoyaltyGift saved = persistenceAdapter.save(gift);
 
     assertThat(saved.getId()).isNotNull();
-    assertThat(saved.getStoreId()).isEqualTo(15L);
+    assertThat(saved.getUid()).isNotNull();
+    assertThat(saved.getStoreUid()).isEqualTo(storeUid);
     assertThat(saved.getName()).isEqualTo("Gourde Inox ShopLoc");
     assertThat(saved.getPointsCost()).isEqualTo(120);
     assertThat(saved.getStock()).isEqualTo(15);
     assertThat(saved.isActive()).isTrue();
 
-    Optional<LoyaltyGift> found = persistenceAdapter.findByIdAndStoreId(saved.getId(), 15L);
+    Optional<LoyaltyGift> found = persistenceAdapter.findByUidAndStoreUid(saved.getUid(), storeUid);
     assertThat(found).isPresent();
     assertThat(found.get().getName()).isEqualTo("Gourde Inox ShopLoc");
 
@@ -58,19 +61,19 @@ class LoyaltyGiftPersistenceAdapterIntegrationTest {
     assertThat(updated.getStock()).isEqualTo(20);
 
     // List by store
-    List<LoyaltyGift> storeGifts = persistenceAdapter.findByStoreId(15L);
+    List<LoyaltyGift> storeGifts = persistenceAdapter.findByStoreUid(storeUid);
     assertThat(storeGifts).hasSize(1);
     assertThat(persistenceAdapter.findAllActive()).hasSize(1);
 
     // Soft delete / deactivate
     toUpdate.deactivate();
     persistenceAdapter.save(toUpdate);
-    assertThat(persistenceAdapter.findActiveByStoreId(15L)).isEmpty();
+    assertThat(persistenceAdapter.findActiveByStoreUid(storeUid)).isEmpty();
     assertThat(persistenceAdapter.findAllActive()).isEmpty();
-    assertThat(persistenceAdapter.findByStoreId(15L)).hasSize(1);
+    assertThat(persistenceAdapter.findByStoreUid(storeUid)).hasSize(1);
 
     // Physical delete
-    persistenceAdapter.deleteById(saved.getId());
-    assertThat(persistenceAdapter.findById(saved.getId())).isEmpty();
+    persistenceAdapter.deleteByUid(saved.getUid());
+    assertThat(persistenceAdapter.findByUid(saved.getUid())).isEmpty();
   }
 }

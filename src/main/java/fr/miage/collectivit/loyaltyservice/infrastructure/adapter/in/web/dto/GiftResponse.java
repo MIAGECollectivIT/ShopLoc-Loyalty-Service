@@ -3,11 +3,12 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto;
 import fr.miage.collectivit.loyaltyservice.domain.model.CatalogGiftItem;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import java.time.Instant;
+import java.util.UUID;
 
 /** Response DTO representing a loyalty gift item. */
 public record GiftResponse(
-    Long id,
-    Long storeId,
+    UUID uid,
+    UUID storeUid,
     String storeName,
     String category,
     String name,
@@ -20,8 +21,8 @@ public record GiftResponse(
     Instant updatedAt) {
 
   public GiftResponse(
-      Long id,
-      Long storeId,
+      UUID uid,
+      UUID storeUid,
       String name,
       String description,
       Integer pointsCost,
@@ -31,8 +32,8 @@ public record GiftResponse(
       Instant createdAt,
       Instant updatedAt) {
     this(
-        id,
-        storeId,
+        uid,
+        storeUid,
         null,
         null,
         name,
@@ -54,8 +55,8 @@ public record GiftResponse(
       return null;
     }
     return new GiftResponse(
-        domain.getId(),
-        domain.getStoreId(),
+        domain.getUid(),
+        domain.getStoreUid(),
         storeName,
         category,
         domain.getName(),
@@ -73,8 +74,8 @@ public record GiftResponse(
       return null;
     }
     return new GiftResponse(
-        item.id(),
-        item.storeId(),
+        item.uid(),
+        item.storeUid(),
         item.storeName(),
         item.category(),
         item.name(),

@@ -73,109 +73,100 @@ class GiftCatalogControllerIntegrationTest {
     giftRepository.deleteAll();
   }
 
-  private String generateToken(String role, Long dbId) {
+  private String generateToken(String role, UUID userId) {
     long now = System.currentTimeMillis();
     return Jwts.builder()
         .id(UUID.randomUUID().toString())
-        .subject(UUID.randomUUID().toString())
+        .subject(userId.toString())
         .issuer("shoploc-auth-service")
         .issuedAt(new Date(now))
         .expiration(new Date(now + 3600000))
-        .claim("userId", UUID.randomUUID().toString())
-        .claim("dbId", dbId)
+        .claim("userId", userId.toString())
         .claim("email", role.toLowerCase() + "@shoploc.fr")
         .claim("role", role)
         .signWith(signingKey)
         .compact();
   }
 
+  private LoyaltyGiftJpaEntity buildGiftEntity(
+      UUID storeUid, String name, String description, int pointsCost, int stock, String imageUrl) {
+    return LoyaltyGiftJpaEntity.builder()
+        .uid(UUID.randomUUID())
+        .storeUid(storeUid)
+        .name(name)
+        .description(description)
+        .pointsCost(pointsCost)
+        .stock(stock)
+        .imageUrl(imageUrl)
+        .active(true)
+        .createdAt(Instant.now())
+        .updatedAt(Instant.now())
+        .build();
+  }
+
   @Test
-  @DisplayName("GET /v1/loyalty/stores/{storeId}/gifts -> public retrieval of store gifts")
+  @DisplayName("GET /v1/loyalty/stores/{storeUid}/gifts -> public retrieval of store gifts")
   void shouldRetrieveStoreGiftsPublicly() throws Exception {
-    Long storeId = 10L;
-    LoyaltyGiftJpaEntity gift1 =
-        new LoyaltyGiftJpaEntity(
-            null,
-            storeId,
-            "Mug ShopLoc",
-            "Superbe mug",
-            50,
-            10,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-    LoyaltyGiftJpaEntity gift2 =
-        new LoyaltyGiftJpaEntity(
-            null,
-            storeId,
-            "T-shirt ShopLoc",
-            "T-shirt coton",
-            100,
-            5,
-            null,
-            true,
-            Instant.now(),
-            Instant.now());
-    giftRepository.save(gift1);
-    giftRepository.save(gift2);
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    giftRepository.save(buildGiftEntity(storeUid, "Mug ShopLoc", "Superbe mug", 50, 10, null));
+    giftRepository.save(
+        buildGiftEntity(storeUid, "T-shirt ShopLoc", "T-shirt coton", 100, 5, null));
 
     mockMvc
-        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts"))
+        .perform(get("/v1/loyalty/stores/" + storeUid + "/gifts"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(2))
         .andExpect(jsonPath("$[0].name").value("Mug ShopLoc"))
+        .andExpect(jsonPath("$[0].storeUid").value(storeUid.toString()))
         .andExpect(jsonPath("$[1].name").value("T-shirt ShopLoc"));
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/stores/{storeId}/gifts/{giftId} -> retrieve single gift")
+  @DisplayName("GET /v1/loyalty/stores/{storeUid}/gifts/{giftUid} -> retrieve single gift")
   void shouldRetrieveSingleGift() throws Exception {
-    Long storeId = 10L;
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null,
-                storeId,
-                "Mug ShopLoc",
-                "Superbe mug",
-                50,
-                10,
-                null,
-                true,
-                Instant.now(),
-                Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Mug ShopLoc", "Superbe mug", 50, 10, null));
 
     mockMvc
-        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId()))
+        .perform(get("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid()))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(gift.getId()))
+        .andExpect(jsonPath("$.uid").value(gift.getUid().toString()))
+        .andExpect(jsonPath("$.storeUid").value(storeUid.toString()))
         .andExpect(jsonPath("$.name").value("Mug ShopLoc"))
         .andExpect(jsonPath("$.pointsCost").value(50));
   }
 
   @Test
-  @DisplayName("POST /v1/loyalty/stores/{storeId}/gifts -> 401 if missing token")
+  @DisplayName("GET /v1/loyalty/stores/not-a-uuid/gifts -> 400 Bad Request")
+  void shouldRejectNonUuidStoreUid() throws Exception {
+    mockMvc.perform(get("/v1/loyalty/stores/not-a-uuid/gifts")).andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("POST /v1/loyalty/stores/{storeUid}/gifts -> 401 if missing token")
   void shouldRejectCreateWithoutToken() throws Exception {
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     GiftCreateRequest request = new GiftCreateRequest("Mug", "Desc", 50, 10, null);
 
     mockMvc
         .perform(
-            post("/v1/loyalty/stores/10/gifts")
+            post("/v1/loyalty/stores/" + storeUid + "/gifts")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
   }
 
   @Test
-  @DisplayName("POST /v1/loyalty/stores/{storeId}/gifts -> 403 if CLIENT role")
+  @DisplayName("POST /v1/loyalty/stores/{storeUid}/gifts -> 403 if CLIENT role")
   void shouldRejectCreateForClientRole() throws Exception {
-    String token = generateToken("CLIENT", 42L);
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    String token = generateToken("CLIENT", UUID.randomUUID());
     GiftCreateRequest request = new GiftCreateRequest("Mug", "Desc", 50, 10, null);
 
     mockMvc
         .perform(
-            post("/v1/loyalty/stores/10/gifts")
+            post("/v1/loyalty/stores/" + storeUid + "/gifts")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -183,19 +174,19 @@ class GiftCatalogControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/loyalty/stores/{storeId}/gifts -> 403 if merchant not store owner")
+  @DisplayName("POST /v1/loyalty/stores/{storeUid}/gifts -> 403 if merchant not store owner")
   void shouldRejectCreateIfMerchantNotOwner() throws Exception {
-    Long storeId = 10L;
-    Long ownerId = 42L;
-    Long otherMerchantId = 99L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(ownerId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID ownerUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    UUID otherMerchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440099");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(ownerUid));
 
-    String token = generateToken("MERCHANT", otherMerchantId);
+    String token = generateToken("MERCHANT", otherMerchantUid);
     GiftCreateRequest request = new GiftCreateRequest("Mug", "Desc", 50, 10, null);
 
     mockMvc
         .perform(
-            post("/v1/loyalty/stores/" + storeId + "/gifts")
+            post("/v1/loyalty/stores/" + storeUid + "/gifts")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -203,26 +194,26 @@ class GiftCatalogControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("POST /v1/loyalty/stores/{storeId}/gifts -> 201 Created by store owner")
+  @DisplayName("POST /v1/loyalty/stores/{storeUid}/gifts -> 201 Created by store owner")
   void shouldCreateGiftSuccessfully() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
     GiftCreateRequest request =
         new GiftCreateRequest(
             "Casquette ShopLoc", "Casquette brodée", 80, 15, "https://cdn.shoploc.fr/cap.png");
 
     mockMvc
         .perform(
-            post("/v1/loyalty/stores/" + storeId + "/gifts")
+            post("/v1/loyalty/stores/" + storeUid + "/gifts")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").isNotEmpty())
-        .andExpect(jsonPath("$.storeId").value(storeId))
+        .andExpect(jsonPath("$.uid").isNotEmpty())
+        .andExpect(jsonPath("$.storeUid").value(storeUid.toString()))
         .andExpect(jsonPath("$.name").value("Casquette ShopLoc"))
         .andExpect(jsonPath("$.pointsCost").value(80))
         .andExpect(jsonPath("$.stock").value(15))
@@ -231,33 +222,22 @@ class GiftCatalogControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("PUT /v1/loyalty/stores/{storeId}/gifts/{giftId} -> 200 OK update gift details")
+  @DisplayName("PUT /v1/loyalty/stores/{storeUid}/gifts/{giftUid} -> 200 OK update gift details")
   void shouldUpdateGiftSuccessfully() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
 
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null,
-                storeId,
-                "Ancien Nom",
-                "Ancienne desc",
-                50,
-                10,
-                null,
-                true,
-                Instant.now(),
-                Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Ancien Nom", "Ancienne desc", 50, 10, null));
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
     GiftUpdateRequest request =
         new GiftUpdateRequest("Nouveau Nom", "Nouvelle desc", 90, "https://cdn.shoploc.fr/new.png");
 
     mockMvc
         .perform(
-            put("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId())
+            put("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid())
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -270,24 +250,22 @@ class GiftCatalogControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "PUT /v1/loyalty/stores/{storeId}/gifts/{giftId} -> 403 Forbidden when caller is not store owner (IDOR protection)")
+      "PUT /v1/loyalty/stores/{storeUid}/gifts/{giftUid} -> 403 Forbidden when caller is not store owner (IDOR protection)")
   void shouldRejectUpdateWhenCallerNotStoreOwner() throws Exception {
-    Long storeId = 10L;
-    Long ownerId = 42L;
-    Long attackerId = 99L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(ownerId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID ownerUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    UUID attackerUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440099");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(ownerUid));
 
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null, storeId, "Nom", "Desc", 50, 10, null, true, Instant.now(), Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Nom", "Desc", 50, 10, null));
 
-    String attackerToken = generateToken("MERCHANT", attackerId);
+    String attackerToken = generateToken("MERCHANT", attackerUid);
     GiftUpdateRequest request = new GiftUpdateRequest("Hacked", "Hacked desc", 10, null);
 
     mockMvc
         .perform(
-            put("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId())
+            put("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid())
                 .header("Authorization", "Bearer " + attackerToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -296,23 +274,21 @@ class GiftCatalogControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/loyalty/stores/{storeId}/gifts/{giftId}/stock -> 200 OK adjust stock (SLE-193)")
+      "PATCH /v1/loyalty/stores/{storeUid}/gifts/{giftUid}/stock -> 200 OK adjust stock (SLE-193)")
   void shouldAdjustGiftStockSuccessfully() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
 
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null, storeId, "Mug", "Desc", 50, 10, null, true, Instant.now(), Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Mug", "Desc", 50, 10, null));
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
     GiftStockAdjustRequest request = new GiftStockAdjustRequest(15);
 
     mockMvc
         .perform(
-            patch("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId() + "/stock")
+            patch("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid() + "/stock")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -322,23 +298,21 @@ class GiftCatalogControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "PATCH /v1/loyalty/stores/{storeId}/gifts/{giftId}/stock -> 400 Bad Request on stock underflow")
+      "PATCH /v1/loyalty/stores/{storeUid}/gifts/{giftUid}/stock -> 400 Bad Request on stock underflow")
   void shouldRejectNegativeResultingStock() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
 
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null, storeId, "Mug", "Desc", 50, 10, null, true, Instant.now(), Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Mug", "Desc", 50, 10, null));
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
     GiftStockAdjustRequest request = new GiftStockAdjustRequest(-20);
 
     mockMvc
         .perform(
-            patch("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId() + "/stock")
+            patch("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid() + "/stock")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -346,41 +320,39 @@ class GiftCatalogControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("DELETE /v1/loyalty/stores/{storeId}/gifts/{giftId} -> 204 No Content")
+  @DisplayName("DELETE /v1/loyalty/stores/{storeUid}/gifts/{giftUid} -> 204 No Content")
   void shouldDeleteGiftSuccessfully() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
 
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null, storeId, "Mug", "Desc", 50, 10, null, true, Instant.now(), Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Mug", "Desc", 50, 10, null));
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
 
     mockMvc
         .perform(
-            delete("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId())
+            delete("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid())
                 .header("Authorization", "Bearer " + token))
         .andExpect(status().isNoContent());
 
     mockMvc
-        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId()))
+        .perform(get("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid()))
         .andExpect(status().isNotFound());
   }
 
   @Test
   @DisplayName(
-      "POST /v1/loyalty/stores/{storeId}/gifts (multipart) -> 201 Created with image upload")
+      "POST /v1/loyalty/stores/{storeUid}/gifts (multipart) -> 201 Created with image upload")
   void shouldCreateGiftWithMultipartImage() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
     when(giftImageStoragePort.storeImage(any(), anyLong(), any(), any()))
         .thenReturn("http://minio:9000/product-images/gifts/store-10/test.png");
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
     GiftCreateRequest request = new GiftCreateRequest("Tote bag", "Coton bio", 75, 20, null);
     MockMultipartFile giftPart =
         new MockMultipartFile(
@@ -397,7 +369,7 @@ class GiftCatalogControllerIntegrationTest {
 
     mockMvc
         .perform(
-            multipart("/v1/loyalty/stores/" + storeId + "/gifts")
+            multipart("/v1/loyalty/stores/" + storeUid + "/gifts")
                 .file(giftPart)
                 .file(imagePart)
                 .header("Authorization", "Bearer " + token))
@@ -410,29 +382,25 @@ class GiftCatalogControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "PUT /v1/loyalty/stores/{storeId}/gifts/{giftId} (multipart) -> 200 OK with new image")
+      "PUT /v1/loyalty/stores/{storeUid}/gifts/{giftUid} (multipart) -> 200 OK with new image")
   void shouldUpdateGiftWithMultipartImage() throws Exception {
-    Long storeId = 10L;
-    Long merchantId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantId));
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
     when(giftImageStoragePort.storeImage(any(), anyLong(), any(), any()))
         .thenReturn("http://minio:9000/product-images/gifts/store-10/updated.png");
 
     LoyaltyGiftJpaEntity gift =
         giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null,
-                storeId,
+            buildGiftEntity(
+                storeUid,
                 "Old Name",
                 "Old Desc",
                 50,
                 10,
-                "http://minio:9000/product-images/gifts/store-10/old.png",
-                true,
-                Instant.now(),
-                Instant.now()));
+                "http://minio:9000/product-images/gifts/store-10/old.png"));
 
-    String token = generateToken("MERCHANT", merchantId);
+    String token = generateToken("MERCHANT", merchantUid);
     GiftUpdateRequest request = new GiftUpdateRequest("New Name", "New Desc", 60, null);
     MockMultipartFile giftPart =
         new MockMultipartFile(
@@ -449,7 +417,7 @@ class GiftCatalogControllerIntegrationTest {
 
     mockMvc
         .perform(
-            multipart(HttpMethod.PUT, "/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId())
+            multipart(HttpMethod.PUT, "/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid())
                 .file(giftPart)
                 .file(imagePart)
                 .header("Authorization", "Bearer " + token))
@@ -461,30 +429,20 @@ class GiftCatalogControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/stores/{storeId}/gifts/{giftId}/image -> 200 OK with binary stream")
+  @DisplayName(
+      "GET /v1/loyalty/stores/{storeUid}/gifts/{giftUid}/image -> 200 OK with binary stream")
   void shouldStreamGiftImageSuccessfully() throws Exception {
-    Long storeId = 10L;
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     String s3Url = "http://minio:9000/product-images/gifts/store-10/sample.png";
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null,
-                storeId,
-                "Gourde",
-                "Gourde isotherme",
-                80,
-                5,
-                s3Url,
-                true,
-                Instant.now(),
-                Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Gourde", "Gourde isotherme", 80, 5, s3Url));
 
     byte[] fakePng = "PNG-BYTES-SAMPLE".getBytes(StandardCharsets.UTF_8);
     when(giftImageStoragePort.downloadImage(s3Url))
         .thenReturn(Optional.of(new GiftImageResource(fakePng, "image/png")));
 
     mockMvc
-        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId() + "/image"))
+        .perform(get("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid() + "/image"))
         .andExpect(status().isOk())
         .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "public, max-age=86400"))
         .andExpect(content().contentType("image/png"))
@@ -493,25 +451,14 @@ class GiftCatalogControllerIntegrationTest {
 
   @Test
   @DisplayName(
-      "GET /v1/loyalty/stores/{storeId}/gifts/{giftId}/image -> 404 when gift has no image")
+      "GET /v1/loyalty/stores/{storeUid}/gifts/{giftUid}/image -> 404 when gift has no image")
   void shouldReturn404WhenGiftHasNoImage() throws Exception {
-    Long storeId = 10L;
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     LoyaltyGiftJpaEntity gift =
-        giftRepository.save(
-            new LoyaltyGiftJpaEntity(
-                null,
-                storeId,
-                "Sans Image",
-                "Desc",
-                40,
-                5,
-                null,
-                true,
-                Instant.now(),
-                Instant.now()));
+        giftRepository.save(buildGiftEntity(storeUid, "Sans Image", "Desc", 40, 5, null));
 
     mockMvc
-        .perform(get("/v1/loyalty/stores/" + storeId + "/gifts/" + gift.getId() + "/image"))
+        .perform(get("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid() + "/image"))
         .andExpect(status().isNotFound());
   }
 }

@@ -14,7 +14,8 @@ public class MerchantLoyaltyRateMapper {
     }
     return new MerchantLoyaltyRate(
         entity.getId(),
-        entity.getStoreId(),
+        entity.getUid(),
+        entity.getStoreUid(),
         entity.getEuroAmount(),
         entity.getPointsReward(),
         entity.getCreatedAt(),
@@ -25,12 +26,14 @@ public class MerchantLoyaltyRateMapper {
     if (domain == null) {
       return null;
     }
-    return new MerchantLoyaltyRateJpaEntity(
-        domain.getId(),
-        domain.getStoreId(),
-        domain.getEuroAmount(),
-        domain.getPointsReward(),
-        domain.getCreatedAt(),
-        domain.getUpdatedAt());
+    return MerchantLoyaltyRateJpaEntity.builder()
+        .id(domain.getId())
+        .uid(domain.getUid())
+        .storeUid(domain.getStoreUid())
+        .euroAmount(domain.getEuroAmount())
+        .pointsReward(domain.getPointsReward())
+        .createdAt(domain.getCreatedAt())
+        .updatedAt(domain.getUpdatedAt())
+        .build();
   }
 }

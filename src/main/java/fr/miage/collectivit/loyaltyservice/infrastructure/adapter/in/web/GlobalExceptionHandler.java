@@ -27,6 +27,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /** Global exception handler for Loyalty Service web adapters. */
 @RestControllerAdvice
@@ -41,6 +42,7 @@ public class GlobalExceptionHandler {
     VehicleNotRegisteredException.class,
     IllegalArgumentException.class,
     HandlerMethodValidationException.class,
+    MethodArgumentTypeMismatchException.class,
     jakarta.validation.ConstraintViolationException.class
   })
   public ResponseEntity<Map<String, Object>> handleBadRequestExceptions(Exception ex) {

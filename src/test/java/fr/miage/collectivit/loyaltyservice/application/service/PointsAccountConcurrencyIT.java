@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,7 +55,7 @@ class PointsAccountConcurrencyIT {
                 useCase.processPhysicalPayment(
                     new PhysicalPaymentCompletedEvent(
                         txRef,
-                        999L,
+                        UUID.fromString("550e8400-e29b-41d4-a716-446655440999"),
                         "CARD-CONC-1",
                         userId,
                         new BigDecimal("10.00"),

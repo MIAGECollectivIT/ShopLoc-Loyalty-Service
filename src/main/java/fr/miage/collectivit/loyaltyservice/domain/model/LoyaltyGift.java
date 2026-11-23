@@ -3,6 +3,7 @@ package fr.miage.collectivit.loyaltyservice.domain.model;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientGiftStockException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidGiftException;
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Pure domain model representing an item in a partner merchant's loyalty gift catalog (Story
@@ -14,7 +15,8 @@ public class LoyaltyGift {
   public static final int MAX_GIFT_STOCK = 1_000_000;
 
   private Long id;
-  private final Long storeId;
+  private UUID uid;
+  private final UUID storeUid;
   private String name;
   private String description;
   private Integer pointsCost;
@@ -25,7 +27,7 @@ public class LoyaltyGift {
   private Instant updatedAt;
 
   public LoyaltyGift(
-      Long storeId,
+      UUID storeUid,
       String name,
       String description,
       Integer pointsCost,
@@ -33,7 +35,8 @@ public class LoyaltyGift {
       String imageUrl) {
     this(
         null,
-        storeId,
+        UUID.randomUUID(),
+        storeUid,
         name,
         description,
         pointsCost,
@@ -46,7 +49,8 @@ public class LoyaltyGift {
 
   public LoyaltyGift(
       Long id,
-      Long storeId,
+      UUID uid,
+      UUID storeUid,
       String name,
       String description,
       Integer pointsCost,
@@ -55,13 +59,14 @@ public class LoyaltyGift {
       boolean active,
       Instant createdAt,
       Instant updatedAt) {
-    validateStoreId(storeId);
+    validateStoreUid(storeUid);
     validateName(name);
     validatePointsCost(pointsCost);
     validateStock(stock);
 
     this.id = id;
-    this.storeId = storeId;
+    this.uid = uid != null ? uid : UUID.randomUUID();
+    this.storeUid = storeUid;
     this.name = name.trim();
     this.description = description != null ? description.trim() : null;
     this.pointsCost = pointsCost;
@@ -114,12 +119,9 @@ public class LoyaltyGift {
     return this.stock > 0;
   }
 
-  private void validateStoreId(Long storeId) {
-    if (storeId == null) {
-      throw new InvalidGiftException("Store ID is mandatory.");
-    }
-    if (storeId <= 0) {
-      throw new InvalidGiftException("Store ID must be strictly positive.");
+  private void validateStoreUid(UUID storeUid) {
+    if (storeUid == null) {
+      throw new InvalidGiftException("Store UID is mandatory.");
     }
   }
 
@@ -149,8 +151,16 @@ public class LoyaltyGift {
     this.id = id;
   }
 
-  public Long getStoreId() {
-    return storeId;
+  public UUID getUid() {
+    return uid;
+  }
+
+  public void setUid(UUID uid) {
+    this.uid = uid;
+  }
+
+  public UUID getStoreUid() {
+    return storeUid;
   }
 
   public String getName() {

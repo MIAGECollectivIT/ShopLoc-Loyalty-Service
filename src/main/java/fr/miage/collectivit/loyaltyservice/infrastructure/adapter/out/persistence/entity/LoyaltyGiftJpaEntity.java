@@ -9,6 +9,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,8 +33,11 @@ public class LoyaltyGiftJpaEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "store_id", nullable = false)
-  private Long storeId;
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
+
+  @Column(name = "store_uid")
+  private UUID storeUid;
 
   @Column(name = "name", nullable = false, length = 255)
   private String name;
@@ -61,6 +65,9 @@ public class LoyaltyGiftJpaEntity {
 
   @PrePersist
   protected void onCreate() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
     Instant now = Instant.now();
     if (this.createdAt == null) {
       this.createdAt = now;

@@ -31,9 +31,9 @@ public class KafkaPhysicalPaymentConsumer {
 
     if (log.isInfoEnabled()) {
       log.info(
-          "Kafka physical payment event received: txRef={}, storeId={}",
+          "Kafka physical payment event received: txRef={}, storeUid={}",
           event.transactionReference(),
-          event.storeId());
+          event.storeUid());
     }
 
     try {

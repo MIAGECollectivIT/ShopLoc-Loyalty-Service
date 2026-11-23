@@ -8,6 +8,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.Gif
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftResponse;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftStockAdjustRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftUpdateRequest;
+import fr.miage.collectivit.loyaltyservice.security.CallerAccessGuard;
 import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
 import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
 import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
@@ -19,11 +20,11 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -47,7 +48,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Validated
 @RestController
-@RequestMapping("/v1/loyalty/stores/{storeId}/gifts")
+@RequestMapping("/v1/loyalty/stores/{storeUid}/gifts")
 @Tag(
     name = "Loyalty Gift Catalog",
     description = "Gestion du catalogue de cadeaux fidélité des commerces")
@@ -65,6 +66,7 @@ public class GiftCatalogController {
 
   private final ManageGiftCatalogUseCase manageGiftCatalogUseCase;
   private final GetGiftCatalogQuery getGiftCatalogQuery;
+  private final CallerAccessGuard callerAccessGuard;
 
   @GetMapping
   @PublicEndpoint
@@ -74,21 +76,22 @@ public class GiftCatalogController {
   @ApiResponses(
       value = {@ApiResponse(responseCode = "200", description = "Liste des cadeaux récupérée")})
   public ResponseEntity<List<GiftResponse>> getGifts(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
+          UUID storeUid,
       @Parameter(description = "Inclure les articles inactifs")
           @RequestParam(required = false, defaultValue = "false")
           boolean includeInactive) {
     List<GiftResponse> responses =
-        getGiftCatalogQuery.getGiftsByStore(storeId, includeInactive).stream()
+        getGiftCatalogQuery.getGiftsByStore(storeUid, includeInactive).stream()
             .map(GiftResponse::fromDomain)
             .toList();
     return ResponseEntity.ok(responses);
   }
 
-  @GetMapping("/{giftId}")
+  @GetMapping("/{giftUid}")
   @PublicEndpoint
   @Operation(
       summary = "Consulter le détail d'un article cadeau",
@@ -99,20 +102,22 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "200", description = "Article cadeau trouvé"),
         @ApiResponse(responseCode = "404", description = "Article introuvable")
       })
-  public ResponseEntity<GiftResponse> getGiftById(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+  public ResponseEntity<GiftResponse> getGiftByUid(
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
-      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          UUID storeUid,
+      @Parameter(
+              description = "Identifiant UUID de l'article cadeau",
+              example = "550e8400-e29b-41d4-a716-446655440001")
           @PathVariable
-          @Positive(message = "Gift identifier must be positive")
-          Long giftId) {
-    LoyaltyGift gift = getGiftCatalogQuery.getGiftById(storeId, giftId);
+          UUID giftUid) {
+    LoyaltyGift gift = getGiftCatalogQuery.getGiftByUid(storeUid, giftUid);
     return ResponseEntity.ok(GiftResponse.fromDomain(gift));
   }
 
-  @GetMapping("/{giftId}/image")
+  @GetMapping("/{giftUid}/image")
   @PublicEndpoint
   @Operation(
       summary = "Récupérer l'image binaire d'un article cadeau",
@@ -124,16 +129,18 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Article ou image introuvable")
       })
   public ResponseEntity<byte[]> getGiftImage(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
-      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          UUID storeUid,
+      @Parameter(
+              description = "Identifiant UUID de l'article cadeau",
+              example = "550e8400-e29b-41d4-a716-446655440001")
           @PathVariable
-          @Positive(message = "Gift identifier must be positive")
-          Long giftId) {
+          UUID giftUid) {
     return getGiftCatalogQuery
-        .getGiftImage(storeId, giftId)
+        .getGiftImage(storeUid, giftUid)
         .map(
             resource ->
                 ResponseEntity.ok()
@@ -161,14 +168,15 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Commerce introuvable")
       })
   public ResponseEntity<GiftResponse> createGift(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
+          UUID storeUid,
       @Valid @RequestPart("gift") GiftCreateRequest requestDto,
       @RequestPart(value = "image", required = false) MultipartFile image,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
     InputStream imageStream = null;
@@ -188,7 +196,7 @@ public class GiftCatalogController {
 
     LoyaltyGift created =
         manageGiftCatalogUseCase.createGift(
-            storeId,
+            storeUid,
             requestDto.toCommand(),
             imageStream,
             size != null ? size : 0L,
@@ -197,7 +205,7 @@ public class GiftCatalogController {
             callerUserId,
             callerRole);
     URI location =
-        URI.create(String.format("/v1/loyalty/stores/%d/gifts/%d", storeId, created.getId()));
+        URI.create(String.format("/v1/loyalty/stores/%s/gifts/%s", storeUid, created.getUid()));
     return ResponseEntity.created(location).body(GiftResponse.fromDomain(created));
   }
 
@@ -217,24 +225,25 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Commerce introuvable")
       })
   public ResponseEntity<GiftResponse> createGiftJson(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
+          UUID storeUid,
       @Valid @RequestBody GiftCreateRequest requestDto,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
     LoyaltyGift created =
         manageGiftCatalogUseCase.createGift(
-            storeId, requestDto.toCommand(), callerUserId, callerRole);
+            storeUid, requestDto.toCommand(), callerUserId, callerRole);
     URI location =
-        URI.create(String.format("/v1/loyalty/stores/%d/gifts/%d", storeId, created.getId()));
+        URI.create(String.format("/v1/loyalty/stores/%s/gifts/%s", storeUid, created.getUid()));
     return ResponseEntity.created(location).body(GiftResponse.fromDomain(created));
   }
 
-  @PutMapping(value = "/{giftId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PutMapping(value = "/{giftUid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Modifier un article cadeau avec photo S3 (multipart/form-data)",
@@ -249,18 +258,20 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Article ou commerce introuvable")
       })
   public ResponseEntity<GiftResponse> updateGift(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
-      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          UUID storeUid,
+      @Parameter(
+              description = "Identifiant UUID de l'article cadeau",
+              example = "550e8400-e29b-41d4-a716-446655440001")
           @PathVariable
-          @Positive(message = "Gift identifier must be positive")
-          Long giftId,
+          UUID giftUid,
       @Valid @RequestPart("gift") GiftUpdateRequest requestDto,
       @RequestPart(value = "image", required = false) MultipartFile image,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
     InputStream imageStream = null;
@@ -280,8 +291,8 @@ public class GiftCatalogController {
 
     LoyaltyGift updated =
         manageGiftCatalogUseCase.updateGift(
-            storeId,
-            giftId,
+            storeUid,
+            giftUid,
             requestDto.toCommand(),
             imageStream,
             size != null ? size : 0L,
@@ -292,7 +303,7 @@ public class GiftCatalogController {
     return ResponseEntity.ok(GiftResponse.fromDomain(updated));
   }
 
-  @PutMapping(value = "/{giftId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @PutMapping(value = "/{giftUid}", consumes = MediaType.APPLICATION_JSON_VALUE)
   @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Modifier un article cadeau (JSON)",
@@ -307,26 +318,28 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Article ou commerce introuvable")
       })
   public ResponseEntity<GiftResponse> updateGiftJson(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
-      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          UUID storeUid,
+      @Parameter(
+              description = "Identifiant UUID de l'article cadeau",
+              example = "550e8400-e29b-41d4-a716-446655440001")
           @PathVariable
-          @Positive(message = "Gift identifier must be positive")
-          Long giftId,
+          UUID giftUid,
       @Valid @RequestBody GiftUpdateRequest requestDto,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
     LoyaltyGift updated =
         manageGiftCatalogUseCase.updateGift(
-            storeId, giftId, requestDto.toCommand(), callerUserId, callerRole);
+            storeUid, giftUid, requestDto.toCommand(), callerUserId, callerRole);
     return ResponseEntity.ok(GiftResponse.fromDomain(updated));
   }
 
-  @PatchMapping("/{giftId}/stock")
+  @PatchMapping("/{giftUid}/stock")
   @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Ajuster le stock d'un article cadeau (SLE-193)",
@@ -343,26 +356,28 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Article introuvable")
       })
   public ResponseEntity<GiftResponse> adjustStock(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
-      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          UUID storeUid,
+      @Parameter(
+              description = "Identifiant UUID de l'article cadeau",
+              example = "550e8400-e29b-41d4-a716-446655440001")
           @PathVariable
-          @Positive(message = "Gift identifier must be positive")
-          Long giftId,
+          UUID giftUid,
       @Valid @RequestBody GiftStockAdjustRequest requestDto,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
     LoyaltyGift adjusted =
         manageGiftCatalogUseCase.adjustStock(
-            storeId, giftId, requestDto.delta(), callerUserId, callerRole);
+            storeUid, giftUid, requestDto.delta(), callerUserId, callerRole);
     return ResponseEntity.ok(GiftResponse.fromDomain(adjusted));
   }
 
-  @DeleteMapping("/{giftId}")
+  @DeleteMapping("/{giftUid}")
   @RequiresRole({ROLE_MERCHANT, ROLE_ADMIN})
   @Operation(
       summary = "Supprimer un article cadeau",
@@ -376,19 +391,21 @@ public class GiftCatalogController {
         @ApiResponse(responseCode = "404", description = "Article introuvable")
       })
   public ResponseEntity<Void> deleteGift(
-      @Parameter(description = "Identifiant du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
-      @Parameter(description = "Identifiant de l'article cadeau", example = "1")
+          UUID storeUid,
+      @Parameter(
+              description = "Identifiant UUID de l'article cadeau",
+              example = "550e8400-e29b-41d4-a716-446655440001")
           @PathVariable
-          @Positive(message = "Gift identifier must be positive")
-          Long giftId,
+          UUID giftUid,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
-    manageGiftCatalogUseCase.deleteGift(storeId, giftId, callerUserId, callerRole);
+    manageGiftCatalogUseCase.deleteGift(storeUid, giftUid, callerUserId, callerRole);
     return ResponseEntity.noContent().build();
   }
 }

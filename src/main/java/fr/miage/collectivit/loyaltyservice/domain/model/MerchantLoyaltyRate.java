@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Pure Domain Model representing a merchant's loyalty rate (Story SLE-55 / SLE-145). Supports
@@ -17,32 +18,35 @@ public class MerchantLoyaltyRate {
   public static final BigDecimal MIN_POINTS_STEP = new BigDecimal("0.5");
 
   private Long id;
-  private final Long storeId;
+  private UUID uid;
+  private final UUID storeUid;
   private BigDecimal euroAmount;
   private BigDecimal pointsReward;
   private Instant createdAt;
   private Instant updatedAt;
 
-  public MerchantLoyaltyRate(Long storeId, BigDecimal euroAmount, BigDecimal pointsReward) {
-    this(null, storeId, euroAmount, pointsReward, Instant.now(), Instant.now());
+  public MerchantLoyaltyRate(UUID storeUid, BigDecimal euroAmount, BigDecimal pointsReward) {
+    this(null, null, storeUid, euroAmount, pointsReward, Instant.now(), Instant.now());
   }
 
   public MerchantLoyaltyRate(
       Long id,
-      Long storeId,
+      UUID uid,
+      UUID storeUid,
       BigDecimal euroAmount,
       BigDecimal pointsReward,
       Instant createdAt,
       Instant updatedAt) {
-    this.storeId = Objects.requireNonNull(storeId, "Store identifier is mandatory.");
+    this.storeUid = Objects.requireNonNull(storeUid, "Store identifier is mandatory.");
     validateAndSetRates(euroAmount, pointsReward);
     this.id = id;
+    this.uid = uid;
     this.createdAt = createdAt != null ? createdAt : Instant.now();
     this.updatedAt = updatedAt != null ? updatedAt : Instant.now();
   }
 
-  public static MerchantLoyaltyRate defaultForStore(Long storeId) {
-    return new MerchantLoyaltyRate(storeId, DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD);
+  public static MerchantLoyaltyRate defaultForStore(UUID storeUid) {
+    return new MerchantLoyaltyRate(storeUid, DEFAULT_EURO_AMOUNT, DEFAULT_POINTS_REWARD);
   }
 
   /**
@@ -94,8 +98,12 @@ public class MerchantLoyaltyRate {
     return id;
   }
 
-  public Long getStoreId() {
-    return storeId;
+  public UUID getUid() {
+    return uid;
+  }
+
+  public UUID getStoreUid() {
+    return storeUid;
   }
 
   public BigDecimal getEuroAmount() {

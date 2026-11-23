@@ -3,25 +3,26 @@ package fr.miage.collectivit.loyaltyservice.domain.port.out;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /** Output port for persistence operations on loyalty gifts catalog (SLE-60 / SLE-191). */
 public interface LoyaltyGiftPersistencePort {
 
   LoyaltyGift save(LoyaltyGift gift);
 
-  Optional<LoyaltyGift> findById(Long id);
+  Optional<LoyaltyGift> findByUid(UUID uid);
 
-  Optional<LoyaltyGift> findByIdAndStoreId(Long id, Long storeId);
+  Optional<LoyaltyGift> findByUidAndStoreUid(UUID uid, UUID storeUid);
 
-  default Optional<LoyaltyGift> findByIdAndStoreIdForUpdate(Long id, Long storeId) {
-    return findByIdAndStoreId(id, storeId);
+  default Optional<LoyaltyGift> findByUidAndStoreUidForUpdate(UUID uid, UUID storeUid) {
+    return findByUidAndStoreUid(uid, storeUid);
   }
 
-  List<LoyaltyGift> findByStoreId(Long storeId);
+  List<LoyaltyGift> findByStoreUid(UUID storeUid);
 
-  List<LoyaltyGift> findActiveByStoreId(Long storeId);
+  List<LoyaltyGift> findActiveByStoreUid(UUID storeUid);
 
   List<LoyaltyGift> findAllActive();
 
-  void deleteById(Long id);
+  void deleteByUid(UUID uid);
 }

@@ -21,12 +21,27 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("Application Service - GiftCatalogService Unit Tests (SLE-60 / SLE-192, SLE-193)")
 class GiftCatalogServiceTest {
+
+  private static final UUID STORE_UID = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+  private static final UUID STORE_UID_2 = UUID.fromString("550e8400-e29b-41d4-a716-446655440020");
+  private static final UUID UNKNOWN_STORE_UID =
+      UUID.fromString("550e8400-e29b-41d4-a716-446655440999");
+  private static final UUID GIFT_UID = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
+  private static final UUID GIFT_UID_2 = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+  private static final UUID UNKNOWN_GIFT_UID =
+      UUID.fromString("550e8400-e29b-41d4-a716-446655440998");
+  private static final UUID MERCHANT_USER_ID =
+      UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+  private static final UUID OTHER_MERCHANT_ID =
+      UUID.fromString("550e8400-e29b-41d4-a716-446655440099");
+  private static final UUID ADMIN_USER_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440900");
 
   private LoyaltyGiftPersistencePort persistencePort;
   private StoreVerificationPort storeVerificationPort;
@@ -50,9 +65,8 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should successfully create a loyalty gift when caller is store owner")
   void shouldCreateGiftWhenCallerIsStoreOwner() {
-    Long storeId = 10L;
-    Long merchantUserId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     GiftCreateCommand command =
         new GiftCreateCommand(
@@ -61,10 +75,10 @@ class GiftCatalogServiceTest {
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    LoyaltyGift created = service.createGift(storeId, command, merchantUserId, "MERCHANT");
+    LoyaltyGift created = service.createGift(STORE_UID, command, MERCHANT_USER_ID, "MERCHANT");
 
     assertThat(created).isNotNull();
-    assertThat(created.getStoreId()).isEqualTo(storeId);
+    assertThat(created.getStoreUid()).isEqualTo(STORE_UID);
     assertThat(created.getName()).isEqualTo("Mug ShopLoc");
     assertThat(created.getPointsCost()).isEqualTo(75);
     assertThat(created.getStock()).isEqualTo(20);
@@ -75,13 +89,12 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should allow ADMIN to create gift without checking owner id")
   void shouldAllowAdminToCreateGift() {
-    Long storeId = 10L;
     GiftCreateCommand command = new GiftCreateCommand("Mug ShopLoc", "Mug céramique", 75, 20, null);
 
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    LoyaltyGift created = service.createGift(storeId, command, 999L, "ADMIN");
+    LoyaltyGift created = service.createGift(STORE_UID, command, ADMIN_USER_ID, "ADMIN");
 
     assertThat(created.getName()).isEqualTo("Mug ShopLoc");
   }
@@ -89,42 +102,38 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should reject gift creation when caller is not store owner")
   void shouldRejectCreationWhenNotOwner() {
-    Long storeId = 10L;
-    Long trueOwnerId = 42L;
-    Long otherMerchantId = 99L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(trueOwnerId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     GiftCreateCommand command = new GiftCreateCommand("Mug ShopLoc", "Mug céramique", 75, 20, null);
 
-    assertThatThrownBy(() -> service.createGift(storeId, command, otherMerchantId, "MERCHANT"))
+    assertThatThrownBy(() -> service.createGift(STORE_UID, command, OTHER_MERCHANT_ID, "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
-        .hasMessageContaining("you are not the owner of store 10");
+        .hasMessageContaining("you are not the owner of store " + STORE_UID);
   }
 
   @Test
   @DisplayName("Should reject gift creation when store does not exist")
   void shouldRejectCreationWhenStoreNotFound() {
-    Long storeId = 999L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.empty());
+    when(storeVerificationPort.findStoreOwnerUid(UNKNOWN_STORE_UID)).thenReturn(Optional.empty());
 
     GiftCreateCommand command = new GiftCreateCommand("Mug ShopLoc", "Mug céramique", 75, 20, null);
 
-    assertThatThrownBy(() -> service.createGift(storeId, command, 42L, "MERCHANT"))
+    assertThatThrownBy(
+            () -> service.createGift(UNKNOWN_STORE_UID, command, MERCHANT_USER_ID, "MERCHANT"))
         .isInstanceOf(StoreNotFoundException.class);
   }
 
   @Test
   @DisplayName("Should successfully update gift details")
   void shouldUpdateGiftDetails() {
-    Long storeId = 10L;
-    Long giftId = 1L;
-    Long merchantUserId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     LoyaltyGift existing =
         new LoyaltyGift(
-            giftId, storeId, "Ancien Nom", "Ancienne desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+            1L, GIFT_UID, STORE_UID, "Ancien Nom", "Ancienne desc", 50, 10, null, true, null, null);
+    when(persistencePort.findByUidAndStoreUidForUpdate(GIFT_UID, STORE_UID))
         .thenReturn(Optional.of(existing));
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -134,7 +143,7 @@ class GiftCatalogServiceTest {
             "Nouveau Nom", "Nouvelle desc", 100, "https://cdn.shoploc.fr/img.png");
 
     LoyaltyGift updated =
-        service.updateGift(storeId, giftId, updateCommand, merchantUserId, "MERCHANT");
+        service.updateGift(STORE_UID, GIFT_UID, updateCommand, MERCHANT_USER_ID, "MERCHANT");
 
     assertThat(updated.getName()).isEqualTo("Nouveau Nom");
     assertThat(updated.getDescription()).isEqualTo("Nouvelle desc");
@@ -145,19 +154,17 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should adjust gift stock dedicated inventory (SLE-193)")
   void shouldAdjustGiftStock() {
-    Long storeId = 10L;
-    Long giftId = 1L;
-    Long merchantUserId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     LoyaltyGift existing =
-        new LoyaltyGift(giftId, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+        new LoyaltyGift(1L, GIFT_UID, STORE_UID, "Mug", "Desc", 50, 10, null, true, null, null);
+    when(persistencePort.findByUidAndStoreUidForUpdate(GIFT_UID, STORE_UID))
         .thenReturn(Optional.of(existing));
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    LoyaltyGift result = service.adjustStock(storeId, giftId, 15, merchantUserId, "MERCHANT");
+    LoyaltyGift result = service.adjustStock(STORE_UID, GIFT_UID, 15, MERCHANT_USER_ID, "MERCHANT");
 
     assertThat(result.getStock()).isEqualTo(25);
   }
@@ -165,59 +172,55 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should delete/deactivate a gift from the catalog")
   void shouldDeleteGift() {
-    Long storeId = 10L;
-    Long giftId = 1L;
-    Long merchantUserId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     LoyaltyGift existing =
-        new LoyaltyGift(giftId, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+        new LoyaltyGift(1L, GIFT_UID, STORE_UID, "Mug", "Desc", 50, 10, null, true, null, null);
+    when(persistencePort.findByUidAndStoreUidForUpdate(GIFT_UID, STORE_UID))
         .thenReturn(Optional.of(existing));
 
-    service.deleteGift(storeId, giftId, merchantUserId, "MERCHANT");
+    service.deleteGift(STORE_UID, GIFT_UID, MERCHANT_USER_ID, "MERCHANT");
 
-    verify(persistencePort).deleteById(giftId);
+    verify(persistencePort).deleteByUid(GIFT_UID);
   }
 
   @Test
   @DisplayName("Should retrieve active gifts or all gifts for a store")
   void shouldRetrieveGifts() {
-    Long storeId = 10L;
     LoyaltyGift active =
-        new LoyaltyGift(1L, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
+        new LoyaltyGift(1L, GIFT_UID, STORE_UID, "Mug", "Desc", 50, 10, null, true, null, null);
     LoyaltyGift inactive =
-        new LoyaltyGift(2L, storeId, "Stylo", "Desc", 20, 0, null, false, null, null);
+        new LoyaltyGift(2L, GIFT_UID_2, STORE_UID, "Stylo", "Desc", 20, 0, null, false, null, null);
 
-    when(persistencePort.findByStoreId(storeId)).thenReturn(List.of(active, inactive));
-    when(persistencePort.findActiveByStoreId(storeId)).thenReturn(List.of(active));
+    when(persistencePort.findByStoreUid(STORE_UID)).thenReturn(List.of(active, inactive));
+    when(persistencePort.findActiveByStoreUid(STORE_UID)).thenReturn(List.of(active));
 
-    List<LoyaltyGift> all = service.getGiftsByStore(storeId, true);
+    List<LoyaltyGift> all = service.getGiftsByStore(STORE_UID, true);
     assertThat(all).hasSize(2);
 
-    List<LoyaltyGift> onlyActive = service.getGiftsByStore(storeId, false);
+    List<LoyaltyGift> onlyActive = service.getGiftsByStore(STORE_UID, false);
     assertThat(onlyActive).hasSize(1);
     assertThat(onlyActive.get(0).getName()).isEqualTo("Mug");
   }
 
   @Test
-  @DisplayName("Should throw GiftNotFoundException when giftId does not exist in store")
+  @DisplayName("Should throw GiftNotFoundException when giftUid does not exist in store")
   void shouldThrowWhenGiftNotFound() {
-    Long storeId = 10L;
-    Long giftId = 999L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(42L));
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.empty());
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
+    when(persistencePort.findByUidAndStoreUid(UNKNOWN_GIFT_UID, STORE_UID))
+        .thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.getGiftById(storeId, giftId))
+    assertThatThrownBy(() -> service.getGiftByUid(STORE_UID, UNKNOWN_GIFT_UID))
         .isInstanceOf(GiftNotFoundException.class);
   }
 
   @Test
   @DisplayName("Should create gift and upload image to S3 when binary stream is provided")
   void shouldCreateGiftWithImageUpload() {
-    Long storeId = 10L;
-    Long merchantUserId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     byte[] img = "fake-img".getBytes(StandardCharsets.UTF_8);
     ByteArrayInputStream stream = new ByteArrayInputStream(img);
@@ -231,13 +234,13 @@ class GiftCatalogServiceTest {
 
     LoyaltyGift created =
         service.createGift(
-            storeId,
+            STORE_UID,
             command,
             stream,
             img.length,
             "mug.png",
             "image/png",
-            merchantUserId,
+            MERCHANT_USER_ID,
             "MERCHANT");
 
     assertThat(created.getImageUrl()).isEqualTo("http://minio:9000/product-images/uploaded.png");
@@ -248,15 +251,14 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should update gift and replace old image on S3 when new binary stream is provided")
   void shouldUpdateGiftReplacingOldImage() {
-    Long storeId = 10L;
-    Long giftId = 1L;
-    Long merchantUserId = 42L;
-    when(storeVerificationPort.findStoreOwnerId(storeId)).thenReturn(Optional.of(merchantUserId));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
 
     LoyaltyGift existing =
         new LoyaltyGift(
-            giftId,
-            storeId,
+            1L,
+            GIFT_UID,
+            STORE_UID,
             "Old Name",
             "Old Desc",
             50,
@@ -265,7 +267,7 @@ class GiftCatalogServiceTest {
             true,
             null,
             null);
-    when(persistencePort.findByIdAndStoreIdForUpdate(giftId, storeId))
+    when(persistencePort.findByUidAndStoreUidForUpdate(GIFT_UID, STORE_UID))
         .thenReturn(Optional.of(existing));
     when(persistencePort.save(any(LoyaltyGift.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -279,14 +281,14 @@ class GiftCatalogServiceTest {
 
     LoyaltyGift updated =
         service.updateGift(
-            storeId,
-            giftId,
+            STORE_UID,
+            GIFT_UID,
             command,
             stream,
             newImg.length,
             "new.png",
             "image/png",
-            merchantUserId,
+            MERCHANT_USER_ID,
             "MERCHANT");
 
     assertThat(updated.getImageUrl()).isEqualTo("http://minio:9000/product-images/new.png");
@@ -297,12 +299,11 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should retrieve binary image resource for existing gift")
   void shouldGetGiftImageSuccessfully() {
-    Long storeId = 10L;
-    Long giftId = 1L;
     LoyaltyGift existing =
         new LoyaltyGift(
-            giftId,
-            storeId,
+            1L,
+            GIFT_UID,
+            STORE_UID,
             "Mug",
             "Desc",
             50,
@@ -311,13 +312,14 @@ class GiftCatalogServiceTest {
             true,
             null,
             null);
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+    when(persistencePort.findByUidAndStoreUid(GIFT_UID, STORE_UID))
+        .thenReturn(Optional.of(existing));
 
     byte[] imgBytes = "bytes".getBytes(StandardCharsets.UTF_8);
     when(giftImageStoragePort.downloadImage("http://minio:9000/product-images/mug.png"))
         .thenReturn(Optional.of(new GiftImageResource(imgBytes, "image/png")));
 
-    Optional<GiftImageResource> resource = service.getGiftImage(storeId, giftId);
+    Optional<GiftImageResource> resource = service.getGiftImage(STORE_UID, GIFT_UID);
 
     assertThat(resource).isPresent();
     assertThat(resource.get().bytes()).isEqualTo(imgBytes);
@@ -326,13 +328,12 @@ class GiftCatalogServiceTest {
   @Test
   @DisplayName("Should return empty when gift has no configured image URL")
   void shouldReturnEmptyWhenGiftHasNoImageUrl() {
-    Long storeId = 10L;
-    Long giftId = 1L;
     LoyaltyGift existing =
-        new LoyaltyGift(giftId, storeId, "Mug", "Desc", 50, 10, null, true, null, null);
-    when(persistencePort.findByIdAndStoreId(giftId, storeId)).thenReturn(Optional.of(existing));
+        new LoyaltyGift(1L, GIFT_UID, STORE_UID, "Mug", "Desc", 50, 10, null, true, null, null);
+    when(persistencePort.findByUidAndStoreUid(GIFT_UID, STORE_UID))
+        .thenReturn(Optional.of(existing));
 
-    Optional<GiftImageResource> resource = service.getGiftImage(storeId, giftId);
+    Optional<GiftImageResource> resource = service.getGiftImage(STORE_UID, GIFT_UID);
 
     assertThat(resource).isEmpty();
   }
@@ -341,14 +342,19 @@ class GiftCatalogServiceTest {
   @DisplayName("Should retrieve public catalog enriched with store name and category")
   void shouldRetrievePublicCatalogEnrichedWithStoreInfo() {
     LoyaltyGift gift1 =
-        new LoyaltyGift(1L, 10L, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
-    LoyaltyGift gift2 = new LoyaltyGift(2L, 20L, "Livre", "Roman", 100, 5, null, true, null, null);
+        new LoyaltyGift(
+            1L, GIFT_UID, STORE_UID, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
+    LoyaltyGift gift2 =
+        new LoyaltyGift(
+            2L, GIFT_UID_2, STORE_UID_2, "Livre", "Roman", 100, 5, null, true, null, null);
 
     when(persistencePort.findAllActive()).thenReturn(List.of(gift1, gift2));
-    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
-    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
-    when(storeVerificationPort.findStoreName(20L)).thenReturn(Optional.of("Librairie"));
-    when(storeVerificationPort.findStoreCategory(20L)).thenReturn(Optional.of("Culture"));
+    when(storeVerificationPort.findStoreName(STORE_UID))
+        .thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID))
+        .thenReturn(Optional.of("Alimentation"));
+    when(storeVerificationPort.findStoreName(STORE_UID_2)).thenReturn(Optional.of("Librairie"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID_2)).thenReturn(Optional.of("Culture"));
 
     var items = service.getPublicCatalog(null, null);
 
@@ -365,14 +371,19 @@ class GiftCatalogServiceTest {
   @DisplayName("Should filter public catalog by category case-insensitively")
   void shouldFilterPublicCatalogByCategory() {
     LoyaltyGift gift1 =
-        new LoyaltyGift(1L, 10L, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
-    LoyaltyGift gift2 = new LoyaltyGift(2L, 20L, "Livre", "Roman", 100, 5, null, true, null, null);
+        new LoyaltyGift(
+            1L, GIFT_UID, STORE_UID, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
+    LoyaltyGift gift2 =
+        new LoyaltyGift(
+            2L, GIFT_UID_2, STORE_UID_2, "Livre", "Roman", 100, 5, null, true, null, null);
 
     when(persistencePort.findAllActive()).thenReturn(List.of(gift1, gift2));
-    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
-    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
-    when(storeVerificationPort.findStoreName(20L)).thenReturn(Optional.of("Librairie"));
-    when(storeVerificationPort.findStoreCategory(20L)).thenReturn(Optional.of("Culture"));
+    when(storeVerificationPort.findStoreName(STORE_UID))
+        .thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID))
+        .thenReturn(Optional.of("Alimentation"));
+    when(storeVerificationPort.findStoreName(STORE_UID_2)).thenReturn(Optional.of("Librairie"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID_2)).thenReturn(Optional.of("Culture"));
 
     var items = service.getPublicCatalog(null, "culture");
 
@@ -382,19 +393,22 @@ class GiftCatalogServiceTest {
   }
 
   @Test
-  @DisplayName("Should filter public catalog by storeId")
-  void shouldFilterPublicCatalogByStoreId() {
+  @DisplayName("Should filter public catalog by storeUid")
+  void shouldFilterPublicCatalogByStoreUid() {
     LoyaltyGift gift1 =
-        new LoyaltyGift(1L, 10L, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
+        new LoyaltyGift(
+            1L, GIFT_UID, STORE_UID, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
 
-    when(persistencePort.findActiveByStoreId(10L)).thenReturn(List.of(gift1));
-    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
-    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
+    when(persistencePort.findActiveByStoreUid(STORE_UID)).thenReturn(List.of(gift1));
+    when(storeVerificationPort.findStoreName(STORE_UID))
+        .thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(STORE_UID))
+        .thenReturn(Optional.of("Alimentation"));
 
-    var items = service.getPublicCatalog(10L, null);
+    var items = service.getPublicCatalog(STORE_UID, null);
 
     assertThat(items).hasSize(1);
     assertThat(items.get(0).name()).isEqualTo("Croissant");
-    assertThat(items.get(0).storeId()).isEqualTo(10L);
+    assertThat(items.get(0).storeUid()).isEqualTo(STORE_UID);
   }
 }

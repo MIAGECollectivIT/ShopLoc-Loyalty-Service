@@ -1,14 +1,15 @@
 package fr.miage.collectivit.loyaltyservice.domain.model;
 
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Pure domain projection representing a loyalty gift item enriched with merchant store information
  * for public catalog consumption (SLE-39 / SLE-223).
  */
 public record CatalogGiftItem(
-    Long id,
-    Long storeId,
+    UUID uid,
+    UUID storeUid,
     String storeName,
     String category,
     String name,
@@ -25,8 +26,8 @@ public record CatalogGiftItem(
       return null;
     }
     return new CatalogGiftItem(
-        gift.getId(),
-        gift.getStoreId(),
+        gift.getUid(),
+        gift.getStoreUid(),
         storeName,
         category,
         gift.getName(),

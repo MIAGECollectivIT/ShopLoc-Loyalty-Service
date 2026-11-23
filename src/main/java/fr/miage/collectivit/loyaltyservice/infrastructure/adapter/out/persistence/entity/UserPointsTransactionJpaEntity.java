@@ -12,6 +12,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,6 +36,9 @@ public class UserPointsTransactionJpaEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
+
   @Column(name = "account_id", nullable = false)
   private Long accountId;
 
@@ -44,8 +48,8 @@ public class UserPointsTransactionJpaEntity {
   @Column(name = "transaction_reference", nullable = false, unique = true, length = 64)
   private String transactionReference;
 
-  @Column(name = "store_id")
-  private Long storeId;
+  @Column(name = "store_uid")
+  private UUID storeUid;
 
   @Column(name = "store_name", length = 255)
   private String storeName;
@@ -71,6 +75,9 @@ public class UserPointsTransactionJpaEntity {
 
   @PrePersist
   protected void onCreate() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
     if (this.createdAt == null) {
       this.createdAt = Instant.now();
     }

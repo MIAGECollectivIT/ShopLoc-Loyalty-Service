@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,6 +34,9 @@ public class UserPointsAccountJpaEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
+
   @Column(name = "user_id", nullable = false, unique = true, length = 64)
   private String userId;
 
@@ -50,6 +54,9 @@ public class UserPointsAccountJpaEntity {
 
   @PrePersist
   protected void onCreate() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
     Instant now = Instant.now();
     if (this.balance == null) {
       this.balance = BigDecimal.ZERO.setScale(1, RoundingMode.UNNECESSARY);

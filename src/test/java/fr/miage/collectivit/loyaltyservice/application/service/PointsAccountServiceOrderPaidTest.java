@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("PointsAccountService Order Paid Loyalty Tests (SLE-221, SLE-222)")
 class PointsAccountServiceOrderPaidTest {
 
+  private static final UUID STORE_UID_10 = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+  private static final UUID STORE_UID_20 = UUID.fromString("550e8400-e29b-41d4-a716-446655440020");
+
   @Mock private MerchantLoyaltyRatePersistencePort persistencePort;
   @Mock private StoreVerificationPort storeVerificationPort;
   @Mock private UserPointsPersistencePort userPointsPersistencePort;
@@ -43,9 +47,9 @@ class PointsAccountServiceOrderPaidTest {
       "Should credit points calculated per store loyalty rates for multi-store click & collect order")
   void shouldCreditPointsCalculatedPerStoreLoyaltyRates() {
     StoreOrderBreakdown breakdown1 =
-        new StoreOrderBreakdown(10L, "Boulangerie Le Moulin", new BigDecimal("20.00"));
+        new StoreOrderBreakdown(STORE_UID_10, "Boulangerie Le Moulin", new BigDecimal("20.00"));
     StoreOrderBreakdown breakdown2 =
-        new StoreOrderBreakdown(20L, "Librairie Centrale", new BigDecimal("15.00"));
+        new StoreOrderBreakdown(STORE_UID_20, "Librairie Centrale", new BigDecimal("15.00"));
 
     OrderPaidKafkaEvent event =
         new OrderPaidKafkaEvent(
@@ -62,11 +66,11 @@ class PointsAccountServiceOrderPaidTest {
 
     // Store 10 has rate 2.00 EUR = 10.0 PTS => 20 EUR = 100 PTS
     MerchantLoyaltyRate rateStore10 =
-        new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("10.0"));
-    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.of(rateStore10));
+        new MerchantLoyaltyRate(STORE_UID_10, new BigDecimal("2.00"), new BigDecimal("10.0"));
+    when(persistencePort.findByStoreUid(STORE_UID_10)).thenReturn(Optional.of(rateStore10));
 
     // Store 20 has no rate configured => default 1.00 EUR = 1.0 PTS => 15 EUR = 15 PTS
-    when(persistencePort.findByStoreId(20L)).thenReturn(Optional.empty());
+    when(persistencePort.findByStoreUid(STORE_UID_20)).thenReturn(Optional.empty());
 
     UserPointsAccount existingAccount =
         new UserPointsAccount(
@@ -101,7 +105,7 @@ class PointsAccountServiceOrderPaidTest {
   @DisplayName("Should create account if user does not exist and credit earned points")
   void shouldCreateAccountIfUserDoesNotExist() {
     StoreOrderBreakdown breakdown =
-        new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("30.00"));
+        new StoreOrderBreakdown(STORE_UID_10, "Boulangerie", new BigDecimal("30.00"));
     OrderPaidKafkaEvent event =
         new OrderPaidKafkaEvent(
             "CMD-CC-20261118-NEW",
@@ -114,7 +118,7 @@ class PointsAccountServiceOrderPaidTest {
 
     when(userPointsPersistencePort.existsTransactionByReference("CMD-CC-20261118-NEW"))
         .thenReturn(false);
-    when(persistencePort.findByStoreId(10L))
+    when(persistencePort.findByStoreUid(STORE_UID_10))
         .thenReturn(Optional.empty()); // default 1 EUR = 1 PT => 30 PTS
     when(userPointsPersistencePort.findAccountByUserIdForUpdate("user-new"))
         .thenReturn(Optional.empty());

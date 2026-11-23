@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -38,16 +39,18 @@ public class PublicGiftCatalogController {
   @ApiResponses(
       value = {@ApiResponse(responseCode = "200", description = "Catalogue des cadeaux récupéré")})
   public ResponseEntity<List<GiftResponse>> getPublicGifts(
-      @Parameter(description = "Identifiant optionnel d'un commerce partenaire", example = "10")
+      @Parameter(
+              description = "Identifiant UUID optionnel d'un commerce partenaire",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @RequestParam(required = false)
-          Long storeId,
+          UUID storeUid,
       @Parameter(
               description = "Catégorie optionnelle de commerce ou cadeau",
               example = "Restauration")
           @RequestParam(required = false)
           String category) {
     List<GiftResponse> responses =
-        getGiftCatalogQuery.getPublicCatalog(storeId, category).stream()
+        getGiftCatalogQuery.getPublicCatalog(storeUid, category).stream()
             .map(GiftResponse::fromCatalogItem)
             .toList();
     return ResponseEntity.ok(responses);

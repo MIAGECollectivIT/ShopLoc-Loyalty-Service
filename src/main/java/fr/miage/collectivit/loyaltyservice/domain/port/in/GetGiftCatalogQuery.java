@@ -5,15 +5,16 @@ import fr.miage.collectivit.loyaltyservice.domain.model.GiftImageResource;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /** Inbound query port for retrieving loyalty gifts. */
 public interface GetGiftCatalogQuery {
 
-  List<LoyaltyGift> getGiftsByStore(Long storeId, boolean includeInactive);
+  List<LoyaltyGift> getGiftsByStore(UUID storeUid, boolean includeInactive);
 
-  LoyaltyGift getGiftById(Long storeId, Long giftId);
+  LoyaltyGift getGiftByUid(UUID storeUid, UUID giftUid);
 
-  Optional<GiftImageResource> getGiftImage(Long storeId, Long giftId);
+  Optional<GiftImageResource> getGiftImage(UUID storeUid, UUID giftUid);
 
-  List<CatalogGiftItem> getPublicCatalog(Long storeId, String category);
+  List<CatalogGiftItem> getPublicCatalog(UUID storeUid, String category);
 }

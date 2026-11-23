@@ -5,14 +5,20 @@ import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransactionType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Schema(description = "Mouvement d'historique sur le solde de points de fidélité")
 public record PointsTransactionResponse(
-    @Schema(description = "Identifiant interne technique de la transaction", example = "42")
-        Long id,
+    @Schema(
+            description = "Identifiant public UUID de la transaction",
+            example = "550e8400-e29b-41d4-a716-446655440000")
+        UUID uid,
     @Schema(description = "Référence unique de la transaction", example = "PTS-EARN-2026-0001")
         String transactionReference,
-    @Schema(description = "Identifiant du commerce associé", example = "10") Long storeId,
+    @Schema(
+            description = "Identifiant UUID du commerce associé",
+            example = "550e8400-e29b-41d4-a716-446655440001")
+        UUID storeUid,
     @Schema(description = "Nom du commerce associé", example = "Boulangerie du Centre")
         String storeName,
     @Schema(description = "Type de mouvement (EARN = gain, REDEEM = dépense)", example = "EARN")
@@ -35,9 +41,9 @@ public record PointsTransactionResponse(
   /** Maps a domain {@link PointsTransaction} to a {@link PointsTransactionResponse}. */
   public static PointsTransactionResponse fromDomain(PointsTransaction tx) {
     return new PointsTransactionResponse(
-        tx.id(),
+        tx.uid(),
         tx.transactionReference(),
-        tx.storeId(),
+        tx.storeUid(),
         tx.storeName(),
         tx.type(),
         tx.points(),

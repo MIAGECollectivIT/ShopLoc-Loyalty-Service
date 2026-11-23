@@ -6,6 +6,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistenc
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.mapper.MerchantLoyaltyRateMapper;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.repository.SpringDataMerchantLoyaltyRateRepository;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -25,17 +26,17 @@ public class MerchantLoyaltyRatePersistenceAdapter implements MerchantLoyaltyRat
   }
 
   @Override
-  public Optional<MerchantLoyaltyRate> findByStoreId(Long storeId) {
-    return repository.findByStoreId(storeId).map(mapper::toDomain);
+  public Optional<MerchantLoyaltyRate> findByStoreUid(UUID storeUid) {
+    return repository.findByStoreUid(storeUid).map(mapper::toDomain);
   }
 
   @Override
-  public boolean existsByStoreId(Long storeId) {
-    return repository.existsByStoreId(storeId);
+  public boolean existsByStoreUid(UUID storeUid) {
+    return repository.existsByStoreUid(storeUid);
   }
 
   @Override
-  public void deleteByStoreId(Long storeId) {
-    repository.deleteByStoreId(storeId);
+  public void deleteByStoreUid(UUID storeUid) {
+    repository.deleteByStoreUid(storeUid);
   }
 }

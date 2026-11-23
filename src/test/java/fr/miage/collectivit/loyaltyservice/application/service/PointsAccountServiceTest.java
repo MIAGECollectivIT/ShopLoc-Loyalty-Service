@@ -21,6 +21,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.P
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("Application Service - PointsAccountService")
 class PointsAccountServiceTest {
 
+  private static final UUID STORE_UID_10 = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+  private static final UUID STORE_UID_20 = UUID.fromString("550e8400-e29b-41d4-a716-446655440020");
+  private static final UUID STORE_UID_99 = UUID.fromString("550e8400-e29b-41d4-a716-446655440099");
+  private static final UUID UNKNOWN_STORE_UID =
+      UUID.fromString("550e8400-e29b-41d4-a716-446655440999");
+  private static final UUID OWNER_UID = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+  private static final UUID OTHER_OWNER_UID =
+      UUID.fromString("550e8400-e29b-41d4-a716-446655440098");
+
   @Mock private MerchantLoyaltyRatePersistencePort persistencePort;
   @Mock private StoreVerificationPort storeVerificationPort;
   @Mock private UserPointsPersistencePort userPointsPersistencePort;
@@ -42,35 +52,37 @@ class PointsAccountServiceTest {
   @Test
   @DisplayName("Should create new rate in ADMIN mode without Store Service verification")
   void shouldCreateNewRateAsAdmin() {
-    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
+    when(persistencePort.findByStoreUid(STORE_UID_10)).thenReturn(Optional.empty());
     when(persistencePort.save(any(MerchantLoyaltyRate.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MerchantLoyaltyRate result =
-        service.configureRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"), 99L, "ADMIN");
+        service.configureRate(
+            STORE_UID_10, new BigDecimal("2.00"), new BigDecimal("5.0"), OTHER_OWNER_UID, "ADMIN");
 
-    assertThat(result.getStoreId()).isEqualTo(10L);
+    assertThat(result.getStoreUid()).isEqualTo(STORE_UID_10);
     assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.00"));
     assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
     verify(persistencePort).save(any(MerchantLoyaltyRate.class));
-    verify(storeVerificationPort, never()).findStoreOwnerId(any());
+    verify(storeVerificationPort, never()).findStoreOwnerUid(any());
   }
 
   @Test
   @DisplayName("Should allow store owner merchant to configure and update rate")
   void shouldAllowStoreOwnerMerchantToConfigureRate() {
-    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID_10)).thenReturn(Optional.of(OWNER_UID));
 
     MerchantLoyaltyRate existing =
-        new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"));
-    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.of(existing));
+        new MerchantLoyaltyRate(STORE_UID_10, new BigDecimal("1.00"), new BigDecimal("1.0"));
+    when(persistencePort.findByStoreUid(STORE_UID_10)).thenReturn(Optional.of(existing));
     when(persistencePort.save(any(MerchantLoyaltyRate.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MerchantLoyaltyRate result =
-        service.configureRate(10L, new BigDecimal("3.00"), new BigDecimal("4.5"), 42L, "MERCHANT");
+        service.configureRate(
+            STORE_UID_10, new BigDecimal("3.00"), new BigDecimal("4.5"), OWNER_UID, "MERCHANT");
 
-    assertThat(result.getStoreId()).isEqualTo(10L);
+    assertThat(result.getStoreUid()).isEqualTo(STORE_UID_10);
     assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("3.00"));
     assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("4.5"));
     verify(persistencePort).save(existing);
@@ -79,14 +91,18 @@ class PointsAccountServiceTest {
   @Test
   @DisplayName("Should reject modification when store does not exist (StoreNotFoundException)")
   void shouldThrowWhenStoreDoesNotExist() {
-    when(storeVerificationPort.findStoreOwnerId(999L)).thenReturn(Optional.empty());
+    when(storeVerificationPort.findStoreOwnerUid(UNKNOWN_STORE_UID)).thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->
                 service.configureRate(
-                    999L, new BigDecimal("2.00"), new BigDecimal("2.0"), 42L, "MERCHANT"))
+                    UNKNOWN_STORE_UID,
+                    new BigDecimal("2.00"),
+                    new BigDecimal("2.0"),
+                    OWNER_UID,
+                    "MERCHANT"))
         .isInstanceOf(StoreNotFoundException.class)
-        .hasMessageContaining("999");
+        .hasMessageContaining(UNKNOWN_STORE_UID.toString());
 
     verify(persistencePort, never()).save(any());
   }
@@ -95,12 +111,17 @@ class PointsAccountServiceTest {
   @DisplayName(
       "Should reject modification when merchant is not store owner (StoreAccessDeniedException)")
   void shouldThrowWhenMerchantIsNotStoreOwner() {
-    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(99L));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID_10))
+        .thenReturn(Optional.of(OTHER_OWNER_UID));
 
     assertThatThrownBy(
             () ->
                 service.configureRate(
-                    10L, new BigDecimal("2.00"), new BigDecimal("2.0"), 42L, "MERCHANT"))
+                    STORE_UID_10,
+                    new BigDecimal("2.00"),
+                    new BigDecimal("2.0"),
+                    OWNER_UID,
+                    "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
         .hasMessageContaining("owner");
 
@@ -113,7 +134,11 @@ class PointsAccountServiceTest {
     assertThatThrownBy(
             () ->
                 service.configureRate(
-                    10L, new BigDecimal("2.00"), new BigDecimal("2.0"), (Long) null, "MERCHANT"))
+                    STORE_UID_10,
+                    new BigDecimal("2.00"),
+                    new BigDecimal("2.0"),
+                    (UUID) null,
+                    "MERCHANT"))
         .isInstanceOf(StoreAccessDeniedException.class)
         .hasMessageContaining("Missing");
 
@@ -121,39 +146,39 @@ class PointsAccountServiceTest {
   }
 
   @Test
-  @DisplayName("Should retrieve existing rate by storeId")
+  @DisplayName("Should retrieve existing rate by storeUid")
   void shouldReturnExistingRate() {
     MerchantLoyaltyRate existing =
-        new MerchantLoyaltyRate(20L, new BigDecimal("1.00"), new BigDecimal("2.0"));
-    when(persistencePort.findByStoreId(20L)).thenReturn(Optional.of(existing));
+        new MerchantLoyaltyRate(STORE_UID_20, new BigDecimal("1.00"), new BigDecimal("2.0"));
+    when(persistencePort.findByStoreUid(STORE_UID_20)).thenReturn(Optional.of(existing));
 
-    MerchantLoyaltyRate result = service.getRateByStoreId(20L);
+    MerchantLoyaltyRate result = service.getRateByStoreUid(STORE_UID_20);
 
     assertThat(result).isNotNull();
-    assertThat(result.getStoreId()).isEqualTo(20L);
+    assertThat(result.getStoreUid()).isEqualTo(STORE_UID_20);
   }
 
   @Test
-  @DisplayName("Should throw exception when rate is not found for storeId")
+  @DisplayName("Should throw exception when rate is not found for storeUid")
   void shouldThrowWhenRateNotFound() {
-    when(persistencePort.findByStoreId(999L)).thenReturn(Optional.empty());
+    when(persistencePort.findByStoreUid(UNKNOWN_STORE_UID)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.getRateByStoreId(999L))
+    assertThatThrownBy(() -> service.getRateByStoreUid(UNKNOWN_STORE_UID))
         .isInstanceOf(MerchantLoyaltyRateNotFoundException.class)
-        .hasMessageContaining("999");
+        .hasMessageContaining(UNKNOWN_STORE_UID.toString());
   }
 
   @Test
   @DisplayName(
       "Should recover and retry update when concurrent creation causes DataIntegrityViolationException")
   void shouldRecoverAndRetryWhenConcurrentCreationCausesDataIntegrityViolation() {
-    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID_10)).thenReturn(Optional.of(OWNER_UID));
 
     MerchantLoyaltyRate concurrentRate =
-        new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"));
+        new MerchantLoyaltyRate(STORE_UID_10, new BigDecimal("1.00"), new BigDecimal("1.0"));
 
     // 1st find: returns empty. 2nd find (after conflict): returns the concurrently created rate.
-    when(persistencePort.findByStoreId(10L))
+    when(persistencePort.findByStoreUid(STORE_UID_10))
         .thenReturn(Optional.empty())
         .thenReturn(Optional.of(concurrentRate));
 
@@ -163,7 +188,8 @@ class PointsAccountServiceTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MerchantLoyaltyRate result =
-        service.configureRate(10L, new BigDecimal("2.50"), new BigDecimal("5.0"), 42L, "MERCHANT");
+        service.configureRate(
+            STORE_UID_10, new BigDecimal("2.50"), new BigDecimal("5.0"), OWNER_UID, "MERCHANT");
 
     assertThat(result.getEuroAmount()).isEqualByComparingTo(new BigDecimal("2.50"));
     assertThat(result.getPointsReward()).isEqualByComparingTo(new BigDecimal("5.0"));
@@ -172,15 +198,19 @@ class PointsAccountServiceTest {
   @Test
   @DisplayName("Should propagate DataIntegrityViolationException when concurrency recovery fails")
   void shouldPropagateDataIntegrityViolationWhenRecoveryFails() {
-    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
-    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID_10)).thenReturn(Optional.of(OWNER_UID));
+    when(persistencePort.findByStoreUid(STORE_UID_10)).thenReturn(Optional.empty());
     when(persistencePort.save(any(MerchantLoyaltyRate.class)))
         .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
 
     assertThatThrownBy(
             () ->
                 service.configureRate(
-                    10L, new BigDecimal("2.50"), new BigDecimal("5.0"), 42L, "MERCHANT"))
+                    STORE_UID_10,
+                    new BigDecimal("2.50"),
+                    new BigDecimal("5.0"),
+                    OWNER_UID,
+                    "MERCHANT"))
         .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
   }
 
@@ -202,14 +232,14 @@ class PointsAccountServiceTest {
         new PointsAccountService(
             persistencePort, storeVerificationPort, userPointsPersistencePort, mockTemplate);
 
-    when(storeVerificationPort.findStoreOwnerId(10L)).thenReturn(Optional.of(42L));
-    when(persistencePort.findByStoreId(10L)).thenReturn(Optional.empty());
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID_10)).thenReturn(Optional.of(OWNER_UID));
+    when(persistencePort.findByStoreUid(STORE_UID_10)).thenReturn(Optional.empty());
     when(persistencePort.save(any(MerchantLoyaltyRate.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     MerchantLoyaltyRate result =
         serviceWithTx.configureRate(
-            10L, new BigDecimal("3.00"), new BigDecimal("6.0"), 42L, "MERCHANT");
+            STORE_UID_10, new BigDecimal("3.00"), new BigDecimal("6.0"), OWNER_UID, "MERCHANT");
 
     assertThat(result).isNotNull();
     verify(mockTemplate).execute(any());
@@ -222,7 +252,7 @@ class PointsAccountServiceTest {
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
             "TX-ALREADY-EXISTS",
-            10L,
+            STORE_UID_10,
             "k7P9xQ2",
             "user-123",
             new BigDecimal("20.00"),
@@ -234,7 +264,7 @@ class PointsAccountServiceTest {
 
     service.processPhysicalPayment(event);
 
-    verify(persistencePort, never()).findByStoreId(any());
+    verify(persistencePort, never()).findByStoreUid(any());
     verify(userPointsPersistencePort, never()).saveAccount(any());
     verify(userPointsPersistencePort, never()).saveTransaction(any(), any());
   }
@@ -246,13 +276,14 @@ class PointsAccountServiceTest {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-001", 10L, "k7P9xQ2", "user-123", new BigDecimal("20.00"), "EUR", now);
+            "TX-PHY-001", STORE_UID_10, "k7P9xQ2", "user-123", new BigDecimal("20.00"), "EUR", now);
 
     when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-001")).thenReturn(false);
-    when(persistencePort.findByStoreId(10L))
+    when(persistencePort.findByStoreUid(STORE_UID_10))
         .thenReturn(
             Optional.of(
-                new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"))));
+                new MerchantLoyaltyRate(
+                    STORE_UID_10, new BigDecimal("2.00"), new BigDecimal("5.0"))));
 
     UserPointsAccount existingAccount =
         new UserPointsAccount(
@@ -284,7 +315,7 @@ class PointsAccountServiceTest {
     assertThat(savedTx.type()).isEqualTo(PointsTransactionType.EARN);
     assertThat(savedTx.points()).isEqualByComparingTo("50.0");
     assertThat(savedTx.balanceAfter()).isEqualByComparingTo("60.0");
-    assertThat(savedTx.storeId()).isEqualTo(10L);
+    assertThat(savedTx.storeUid()).isEqualTo(STORE_UID_10);
     assertThat(savedTx.sourceType()).isEqualTo("PHYSICAL_PAYMENT");
   }
 
@@ -295,15 +326,23 @@ class PointsAccountServiceTest {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-STORE-NAME", 10L, "k7P9xQ2", "user-123", new BigDecimal("20.00"), "EUR", now);
+            "TX-PHY-STORE-NAME",
+            STORE_UID_10,
+            "k7P9xQ2",
+            "user-123",
+            new BigDecimal("20.00"),
+            "EUR",
+            now);
 
     when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-STORE-NAME"))
         .thenReturn(false);
-    when(persistencePort.findByStoreId(10L))
+    when(persistencePort.findByStoreUid(STORE_UID_10))
         .thenReturn(
             Optional.of(
-                new MerchantLoyaltyRate(10L, new BigDecimal("2.00"), new BigDecimal("5.0"))));
-    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Burger King Lille"));
+                new MerchantLoyaltyRate(
+                    STORE_UID_10, new BigDecimal("2.00"), new BigDecimal("5.0"))));
+    when(storeVerificationPort.findStoreName(STORE_UID_10))
+        .thenReturn(Optional.of("Burger King Lille"));
 
     UserPointsAccount existingAccount =
         new UserPointsAccount(
@@ -335,11 +374,17 @@ class PointsAccountServiceTest {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-NEW-ACC", 99L, "k7P9xQ2", "user-new", new BigDecimal("15.50"), "EUR", now);
+            "TX-PHY-NEW-ACC",
+            STORE_UID_99,
+            "k7P9xQ2",
+            "user-new",
+            new BigDecimal("15.50"),
+            "EUR",
+            now);
 
     when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NEW-ACC"))
         .thenReturn(false);
-    when(persistencePort.findByStoreId(99L)).thenReturn(Optional.empty());
+    when(persistencePort.findByStoreUid(STORE_UID_99)).thenReturn(Optional.empty());
     when(userPointsPersistencePort.findAccountByUserIdForUpdate("user-new"))
         .thenReturn(Optional.empty());
     when(userPointsPersistencePort.saveAccount(any(UserPointsAccount.class)))
@@ -378,14 +423,15 @@ class PointsAccountServiceTest {
     Instant now = Instant.parse("2026-11-15T12:00:00Z");
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            "TX-PHY-NO-UUID", 10L, "CARD-777", "   ", new BigDecimal("10.00"), "EUR", now);
+            "TX-PHY-NO-UUID", STORE_UID_10, "CARD-777", "   ", new BigDecimal("10.00"), "EUR", now);
 
     when(userPointsPersistencePort.existsTransactionByReference("TX-PHY-NO-UUID"))
         .thenReturn(false);
-    when(persistencePort.findByStoreId(10L))
+    when(persistencePort.findByStoreUid(STORE_UID_10))
         .thenReturn(
             Optional.of(
-                new MerchantLoyaltyRate(10L, new BigDecimal("1.00"), new BigDecimal("1.0"))));
+                new MerchantLoyaltyRate(
+                    STORE_UID_10, new BigDecimal("1.00"), new BigDecimal("1.0"))));
 
     UserPointsAccount existingAccount =
         new UserPointsAccount(

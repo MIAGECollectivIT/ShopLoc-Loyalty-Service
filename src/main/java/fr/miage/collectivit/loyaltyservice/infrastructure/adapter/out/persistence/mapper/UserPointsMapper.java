@@ -46,9 +46,10 @@ public class UserPointsMapper {
     }
     return new PointsTransaction(
         entity.getId(),
+        entity.getUid(),
         entity.getTransactionReference(),
         entity.getUserId(),
-        entity.getStoreId(),
+        entity.getStoreUid(),
         entity.getStoreName(),
         entity.getType(),
         entity.getPoints(),
@@ -68,10 +69,11 @@ public class UserPointsMapper {
     }
     return UserPointsTransactionJpaEntity.builder()
         .id(domain.id())
+        .uid(domain.uid())
         .accountId(accountId)
         .userId(domain.userId())
         .transactionReference(domain.transactionReference())
-        .storeId(domain.storeId())
+        .storeUid(domain.storeUid())
         .storeName(domain.storeName())
         .type(domain.type())
         .points(domain.points())

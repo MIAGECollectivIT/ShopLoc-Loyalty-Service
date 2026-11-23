@@ -12,6 +12,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.S
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("Kafka Adapter - KafkaOrderPaidConsumer Unit Tests")
 class KafkaOrderPaidConsumerTest {
 
+  private static final UUID STORE_UID = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+
   @Mock private ProcessOrderPaidLoyaltyUseCase processOrderPaidLoyaltyUseCase;
 
   @InjectMocks private KafkaOrderPaidConsumer consumer;
@@ -31,7 +34,7 @@ class KafkaOrderPaidConsumerTest {
   @DisplayName("Should delegate valid OrderPaidKafkaEvent to use case")
   void shouldDelegateValidEventToUseCase() {
     StoreOrderBreakdown breakdown =
-        new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("25.00"));
+        new StoreOrderBreakdown(STORE_UID, "Boulangerie", new BigDecimal("25.00"));
     OrderPaidKafkaEvent event =
         new OrderPaidKafkaEvent(
             "CMD-CC-20261118-001",
@@ -69,7 +72,7 @@ class KafkaOrderPaidConsumerTest {
   @DisplayName("Should propagate exceptions to enable Kafka error handler retry and DLQ recovery")
   void shouldPropagateExceptionsToKafkaErrorHandler() {
     StoreOrderBreakdown breakdown =
-        new StoreOrderBreakdown(10L, "Boulangerie", new BigDecimal("25.00"));
+        new StoreOrderBreakdown(STORE_UID, "Boulangerie", new BigDecimal("25.00"));
     OrderPaidKafkaEvent event =
         new OrderPaidKafkaEvent(
             "CMD-CC-20261118-ERR",

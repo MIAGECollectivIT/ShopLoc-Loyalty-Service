@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLoyaltyRateException;
 import java.math.BigDecimal;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,13 +14,17 @@ import org.junit.jupiter.params.provider.CsvSource;
 @DisplayName("Domain Model - MerchantLoyaltyRate")
 class MerchantLoyaltyRateTest {
 
+  private static final UUID STORE_UID_1 = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
+  private static final UUID STORE_UID_2 = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+  private static final UUID STORE_UID_50 = UUID.fromString("550e8400-e29b-41d4-a716-446655440050");
+
   @Test
   @DisplayName("Should create valid loyalty rate with whole or half points")
   void shouldCreateValidLoyaltyRate() {
     MerchantLoyaltyRate rate =
-        new MerchantLoyaltyRate(1L, new BigDecimal("1.50"), new BigDecimal("2.5"));
+        new MerchantLoyaltyRate(STORE_UID_1, new BigDecimal("1.50"), new BigDecimal("2.5"));
 
-    assertThat(rate.getStoreId()).isEqualTo(1L);
+    assertThat(rate.getStoreUid()).isEqualTo(STORE_UID_1);
     assertThat(rate.getEuroAmount()).isEqualByComparingTo(new BigDecimal("1.50"));
     assertThat(rate.getPointsReward()).isEqualByComparingTo(new BigDecimal("2.5"));
     assertThat(rate.getCreatedAt()).isNotNull();
@@ -29,23 +34,27 @@ class MerchantLoyaltyRateTest {
   @Test
   @DisplayName("Should create standard default rate for store (1€ = 1 pt)")
   void shouldCreateDefaultForStore() {
-    MerchantLoyaltyRate defaultRate = MerchantLoyaltyRate.defaultForStore(50L);
+    MerchantLoyaltyRate defaultRate = MerchantLoyaltyRate.defaultForStore(STORE_UID_50);
 
-    assertThat(defaultRate.getStoreId()).isEqualTo(50L);
+    assertThat(defaultRate.getStoreUid()).isEqualTo(STORE_UID_50);
     assertThat(defaultRate.getEuroAmount()).isEqualByComparingTo(new BigDecimal("1.00"));
     assertThat(defaultRate.getPointsReward()).isEqualByComparingTo(new BigDecimal("1.0"));
     assertThat(defaultRate.getId()).isNull();
+    assertThat(defaultRate.getUid()).isNull();
   }
 
   @Test
   @DisplayName("Should reject zero or negative euro amount")
   void shouldRejectZeroOrNegativeEuroAmount() {
-    assertThatThrownBy(() -> new MerchantLoyaltyRate(1L, BigDecimal.ZERO, new BigDecimal("1.0")))
+    assertThatThrownBy(
+            () -> new MerchantLoyaltyRate(STORE_UID_1, BigDecimal.ZERO, new BigDecimal("1.0")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
         .hasMessageContaining("strictly positive");
 
     assertThatThrownBy(
-            () -> new MerchantLoyaltyRate(1L, new BigDecimal("-5.00"), new BigDecimal("1.0")))
+            () ->
+                new MerchantLoyaltyRate(
+                    STORE_UID_1, new BigDecimal("-5.00"), new BigDecimal("1.0")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
         .hasMessageContaining("strictly positive");
   }
@@ -53,17 +62,20 @@ class MerchantLoyaltyRateTest {
   @Test
   @DisplayName("Should reject points reward below 0.5 or not multiple of 0.5")
   void shouldRejectInvalidPointsReward() {
-    assertThatThrownBy(() -> new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), BigDecimal.ZERO))
+    assertThatThrownBy(
+            () -> new MerchantLoyaltyRate(STORE_UID_1, new BigDecimal("1.00"), BigDecimal.ZERO))
         .isInstanceOf(InvalidLoyaltyRateException.class)
         .hasMessageContaining("greater than or equal to 0.5");
 
     assertThatThrownBy(
-            () -> new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), new BigDecimal("0.3")))
+            () ->
+                new MerchantLoyaltyRate(STORE_UID_1, new BigDecimal("1.00"), new BigDecimal("0.3")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
         .hasMessageContaining("greater than or equal to 0.5");
 
     assertThatThrownBy(
-            () -> new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), new BigDecimal("1.2")))
+            () ->
+                new MerchantLoyaltyRate(STORE_UID_1, new BigDecimal("1.00"), new BigDecimal("1.2")))
         .isInstanceOf(InvalidLoyaltyRateException.class)
         .hasMessageContaining("multiple of 0.5");
   }
@@ -83,7 +95,7 @@ class MerchantLoyaltyRateTest {
   @DisplayName("SLE-55 criterion: half-point step rule for standard rate (1 € = 1 pt)")
   void shouldCalculatePointsWithStandardRate(String purchaseStr, String expectedPointsStr) {
     MerchantLoyaltyRate rate =
-        new MerchantLoyaltyRate(1L, new BigDecimal("1.00"), new BigDecimal("1.0"));
+        new MerchantLoyaltyRate(STORE_UID_1, new BigDecimal("1.00"), new BigDecimal("1.0"));
 
     BigDecimal points = rate.calculatePointsForPurchase(new BigDecimal(purchaseStr));
 
@@ -95,7 +107,7 @@ class MerchantLoyaltyRateTest {
   @DisplayName("SLE-55 criterion: 25 € purchase with 2 € = 1 pt yields 12.5 points")
   void shouldCalculateHalfPointsAccurately(String purchaseStr, String expectedPointsStr) {
     MerchantLoyaltyRate rate =
-        new MerchantLoyaltyRate(1L, new BigDecimal("2.00"), new BigDecimal("1.0"));
+        new MerchantLoyaltyRate(STORE_UID_1, new BigDecimal("2.00"), new BigDecimal("1.0"));
 
     BigDecimal points = rate.calculatePointsForPurchase(new BigDecimal(purchaseStr));
 
@@ -107,7 +119,7 @@ class MerchantLoyaltyRateTest {
   @DisplayName("SLE-55 criterion: proportional calculation for custom rate (5 € = 10 pts)")
   void shouldCalculatePointsWithCustomRate(String purchaseStr, String expectedPointsStr) {
     MerchantLoyaltyRate rate =
-        new MerchantLoyaltyRate(2L, new BigDecimal("5.00"), new BigDecimal("10.0"));
+        new MerchantLoyaltyRate(STORE_UID_2, new BigDecimal("5.00"), new BigDecimal("10.0"));
 
     BigDecimal points = rate.calculatePointsForPurchase(new BigDecimal(purchaseStr));
 
