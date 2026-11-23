@@ -9,6 +9,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistenc
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.entity.UserPointsTransactionJpaEntity;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -63,12 +64,15 @@ class UserPointsMapperTest {
   @DisplayName("Should map bidirectionally between PointsTransaction and JPA entity")
   void shouldMapTransactionBidirectionally() {
     Instant createdAt = Instant.parse("2026-11-15T09:15:00Z");
+    UUID txUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     PointsTransaction domain =
         new PointsTransaction(
             42L,
+            txUid,
             "PTS-EARN-2026-0042",
             "550e8400-e29b-41d4-a716-446655440000",
-            10L,
+            storeUid,
             "Boulangerie du Centre",
             PointsTransactionType.EARN,
             new BigDecimal("12.5"),
@@ -80,10 +84,11 @@ class UserPointsMapperTest {
     UserPointsTransactionJpaEntity entity = mapper.toEntity(12L, domain);
     assertThat(entity).isNotNull();
     assertThat(entity.getId()).isEqualTo(42L);
+    assertThat(entity.getUid()).isEqualTo(txUid);
     assertThat(entity.getAccountId()).isEqualTo(12L);
     assertThat(entity.getTransactionReference()).isEqualTo("PTS-EARN-2026-0042");
     assertThat(entity.getUserId()).isEqualTo("550e8400-e29b-41d4-a716-446655440000");
-    assertThat(entity.getStoreId()).isEqualTo(10L);
+    assertThat(entity.getStoreUid()).isEqualTo(storeUid);
     assertThat(entity.getStoreName()).isEqualTo("Boulangerie du Centre");
     assertThat(entity.getType()).isEqualTo(PointsTransactionType.EARN);
     assertThat(entity.getPoints()).isEqualByComparingTo("12.5");
@@ -95,9 +100,10 @@ class UserPointsMapperTest {
     PointsTransaction mappedBack = mapper.toDomain(entity);
     assertThat(mappedBack).isNotNull();
     assertThat(mappedBack.id()).isEqualTo(42L);
+    assertThat(mappedBack.uid()).isEqualTo(txUid);
     assertThat(mappedBack.transactionReference()).isEqualTo("PTS-EARN-2026-0042");
     assertThat(mappedBack.userId()).isEqualTo("550e8400-e29b-41d4-a716-446655440000");
-    assertThat(mappedBack.storeId()).isEqualTo(10L);
+    assertThat(mappedBack.storeUid()).isEqualTo(storeUid);
     assertThat(mappedBack.storeName()).isEqualTo("Boulangerie du Centre");
     assertThat(mappedBack.type()).isEqualTo(PointsTransactionType.EARN);
     assertThat(mappedBack.points()).isEqualByComparingTo("12.5");

@@ -2,6 +2,7 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persisten
 
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.entity.MerchantLoyaltyRateJpaEntity;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,9 +11,9 @@ import org.springframework.stereotype.Repository;
 public interface SpringDataMerchantLoyaltyRateRepository
     extends JpaRepository<MerchantLoyaltyRateJpaEntity, Long> {
 
-  Optional<MerchantLoyaltyRateJpaEntity> findByStoreId(Long storeId);
+  Optional<MerchantLoyaltyRateJpaEntity> findByStoreUid(UUID storeUid);
 
-  boolean existsByStoreId(Long storeId);
+  boolean existsByStoreUid(UUID storeUid);
 
-  void deleteByStoreId(Long storeId);
+  void deleteByStoreUid(UUID storeUid);
 }

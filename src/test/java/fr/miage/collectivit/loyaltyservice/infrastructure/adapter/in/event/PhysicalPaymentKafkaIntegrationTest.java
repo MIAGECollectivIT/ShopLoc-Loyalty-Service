@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,9 +67,9 @@ class PhysicalPaymentKafkaIntegrationTest {
   @DisplayName(
       "Should consume physical payment event, credit points with merchant rate, and handle idempotence")
   void shouldConsumeEventAndCreditPointsIdempotently() {
-    Long storeId = 20L;
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440020");
     merchantLoyaltyRatePersistencePort.save(
-        new MerchantLoyaltyRate(storeId, new BigDecimal("2.00"), new BigDecimal("5.0")));
+        new MerchantLoyaltyRate(storeUid, new BigDecimal("2.00"), new BigDecimal("5.0")));
 
     String userId = "user-e2e-kafka-001";
     String clientCode = "CARD-E2E-999";
@@ -77,7 +78,7 @@ class PhysicalPaymentKafkaIntegrationTest {
     // 20.00 EUR * 5.0 PTS / 2.00 EUR = 50.0 PTS
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
-            txRef, storeId, clientCode, userId, new BigDecimal("20.00"), "EUR", Instant.now());
+            txRef, storeUid, clientCode, userId, new BigDecimal("20.00"), "EUR", Instant.now());
 
     kafkaTemplate.send("shoploc.physical-payments", clientCode, event);
 

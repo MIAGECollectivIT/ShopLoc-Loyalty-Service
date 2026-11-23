@@ -7,6 +7,7 @@ import fr.miage.collectivit.loyaltyservice.domain.port.in.ConfigureMerchantLoyal
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetMerchantLoyaltyRateQuery;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.MerchantLoyaltyRateRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.MerchantLoyaltyRateResponse;
+import fr.miage.collectivit.loyaltyservice.security.CallerAccessGuard;
 import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
 import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
 import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
@@ -18,7 +19,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Positive;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -35,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Validated
 @RestController
-@RequestMapping("/v1/loyalty/merchants/{storeId}/rates")
+@RequestMapping("/v1/loyalty/merchants/{storeUid}/rates")
 @Tag(
     name = "Merchant Loyalty Rates",
     description = "Gestion du barème de conversion euro/points des commerces")
@@ -44,6 +45,7 @@ public class MerchantLoyaltyRateController {
 
   private final ConfigureMerchantLoyaltyRateUseCase configureRateUseCase;
   private final GetMerchantLoyaltyRateQuery getRateQuery;
+  private final CallerAccessGuard callerAccessGuard;
 
   @GetMapping
   @PublicEndpoint
@@ -56,15 +58,16 @@ public class MerchantLoyaltyRateController {
         @ApiResponse(responseCode = "200", description = "Barème de fidélité récupéré avec succès")
       })
   public ResponseEntity<MerchantLoyaltyRateResponse> getRate(
-      @Parameter(description = "Identifiant unique du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant unique UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId) {
+          UUID storeUid) {
     try {
-      MerchantLoyaltyRate rate = getRateQuery.getRateByStoreId(storeId);
+      MerchantLoyaltyRate rate = getRateQuery.getRateByStoreUid(storeUid);
       return ResponseEntity.ok(MerchantLoyaltyRateResponse.fromDomain(rate));
     } catch (MerchantLoyaltyRateNotFoundException ex) {
-      return ResponseEntity.ok(MerchantLoyaltyRateResponse.defaultRate(storeId));
+      return ResponseEntity.ok(MerchantLoyaltyRateResponse.defaultRate(storeUid));
     }
   }
 
@@ -90,18 +93,19 @@ public class MerchantLoyaltyRateController {
         @ApiResponse(responseCode = "404", description = "Commerce introuvable")
       })
   public ResponseEntity<MerchantLoyaltyRateResponse> configureRate(
-      @Parameter(description = "Identifiant unique du commerce", example = "10")
+      @Parameter(
+              description = "Identifiant unique UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
           @PathVariable
-          @Positive(message = "Store identifier must be positive")
-          Long storeId,
+          UUID storeUid,
       @Valid @RequestBody MerchantLoyaltyRateRequest requestDto,
       HttpServletRequest request) {
-    Long callerUserId = (Long) request.getAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID);
+    UUID callerUserId = callerAccessGuard.resolveAuthenticatedUserUuid(request);
     String callerRole = (String) request.getAttribute(JwtAuthInterceptor.ATTR_USER_ROLE);
 
     MerchantLoyaltyRate configuredRate =
         configureRateUseCase.configureRate(
-            storeId, requestDto.euroAmount(), requestDto.pointsReward(), callerUserId, callerRole);
+            storeUid, requestDto.euroAmount(), requestDto.pointsReward(), callerUserId, callerRole);
 
     return ResponseEntity.ok(MerchantLoyaltyRateResponse.fromDomain(configuredRate));
   }

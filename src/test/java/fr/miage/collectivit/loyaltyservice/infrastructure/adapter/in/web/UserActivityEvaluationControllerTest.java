@@ -48,7 +48,7 @@ class UserActivityEvaluationControllerTest {
     signingKey = Keys.hmacShaKeyFor(keyBytes);
   }
 
-  private String generateToken(String role, String userId, Long dbId) {
+  private String generateToken(String role, String userId) {
     long now = System.currentTimeMillis();
     return Jwts.builder()
         .id(UUID.randomUUID().toString())
@@ -57,7 +57,6 @@ class UserActivityEvaluationControllerTest {
         .issuedAt(new Date(now))
         .expiration(new Date(now + 3600000))
         .claim("userId", userId)
-        .claim("dbId", dbId)
         .claim("email", userId + "@example.com")
         .claim("role", role)
         .signWith(signingKey)
@@ -75,7 +74,7 @@ class UserActivityEvaluationControllerTest {
   @Test
   @DisplayName("SLE-163: Client querying another user's activity should return 403 Forbidden")
   void testGetActivityEvaluationForbiddenForOtherUser() throws Exception {
-    String token = generateToken("CLIENT", "USER-100", 100L);
+    String token = generateToken("CLIENT", "USER-100");
 
     mockMvc
         .perform(
@@ -92,7 +91,7 @@ class UserActivityEvaluationControllerTest {
   @DisplayName("SLE-163: Client querying own activity should return 200 OK and evaluation data")
   void testGetActivityEvaluationNominalClient() throws Exception {
     String userId = "USER-100";
-    String token = generateToken("CLIENT", userId, 100L);
+    String token = generateToken("CLIENT", userId);
 
     Instant now = Instant.now();
     Instant windowStart = now.minus(15, ChronoUnit.DAYS);
@@ -128,7 +127,7 @@ class UserActivityEvaluationControllerTest {
   @DisplayName("SLE-163: Admin can query any user's activity evaluation")
   void testGetActivityEvaluationAdminAccess() throws Exception {
     String targetUserId = "USER-TARGET";
-    String adminToken = generateToken("ADMIN", "ADMIN-USER", 1L);
+    String adminToken = generateToken("ADMIN", "ADMIN-USER");
 
     Instant now = Instant.now();
     Instant windowStart = now.minus(15, ChronoUnit.DAYS);
@@ -153,7 +152,7 @@ class UserActivityEvaluationControllerTest {
   @DisplayName("SLE-163: Remote sales service unavailable should return 502 Bad Gateway")
   void testGetActivityEvaluationSalesUnavailable() throws Exception {
     String userId = "USER-100";
-    String token = generateToken("CLIENT", userId, 100L);
+    String token = generateToken("CLIENT", userId);
 
     when(evaluateUserActivityUseCase.evaluateActivity(eq(userId)))
         .thenThrow(new SalesServiceUnavailableException("Sales service down"));

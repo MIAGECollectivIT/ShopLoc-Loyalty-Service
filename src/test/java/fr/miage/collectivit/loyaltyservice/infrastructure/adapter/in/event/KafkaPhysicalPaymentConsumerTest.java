@@ -10,6 +10,7 @@ import fr.miage.collectivit.loyaltyservice.domain.port.in.ProcessPhysicalPayment
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("Kafka Adapter - KafkaPhysicalPaymentConsumer Unit Tests (SLE-173)")
 class KafkaPhysicalPaymentConsumerTest {
 
+  private static final UUID STORE_UID = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+
   @Mock private ProcessPhysicalPaymentLoyaltyUseCase processPhysicalPaymentLoyaltyUseCase;
 
   @InjectMocks private KafkaPhysicalPaymentConsumer consumer;
@@ -31,7 +34,7 @@ class KafkaPhysicalPaymentConsumerTest {
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
             "TX-PHY-100",
-            10L,
+            STORE_UID,
             "k7P9xQ2",
             "user-123",
             new BigDecimal("25.00"),
@@ -50,7 +53,7 @@ class KafkaPhysicalPaymentConsumerTest {
 
     PhysicalPaymentCompletedEvent blankRefEvent =
         new PhysicalPaymentCompletedEvent(
-            "   ", 10L, "k7P9xQ2", "user-123", new BigDecimal("25.00"), "EUR", Instant.now());
+            "   ", STORE_UID, "k7P9xQ2", "user-123", new BigDecimal("25.00"), "EUR", Instant.now());
     consumer.onPhysicalPaymentCompleted(blankRefEvent);
 
     verify(processPhysicalPaymentLoyaltyUseCase, never()).processPhysicalPayment(any());
@@ -62,7 +65,7 @@ class KafkaPhysicalPaymentConsumerTest {
     PhysicalPaymentCompletedEvent event =
         new PhysicalPaymentCompletedEvent(
             "TX-ERR-500",
-            10L,
+            STORE_UID,
             "k7P9xQ2",
             "user-123",
             new BigDecimal("25.00"),

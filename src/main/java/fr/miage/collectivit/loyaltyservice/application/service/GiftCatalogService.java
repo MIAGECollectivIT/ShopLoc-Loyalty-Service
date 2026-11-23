@@ -16,6 +16,7 @@ import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -48,22 +49,22 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
 
   @Override
   public LoyaltyGift createGift(
-      Long storeId, GiftCreateCommand command, Long userId, String userRole) {
-    return createGift(storeId, command, null, 0, null, null, userId, userRole);
+      UUID storeUid, GiftCreateCommand command, UUID userId, String userRole) {
+    return createGift(storeUid, command, null, 0, null, null, userId, userRole);
   }
 
   @Override
   public LoyaltyGift createGift(
-      Long storeId,
+      UUID storeUid,
       GiftCreateCommand command,
       InputStream imageStream,
       long imageSize,
       String originalFilename,
       String contentType,
-      Long userId,
+      UUID userId,
       String userRole) {
     // Network I/O (store-service, S3) is kept outside of the DB transaction.
-    validateStoreOwnership(storeId, userId, userRole);
+    validateStoreOwnership(storeUid, userId, userRole);
 
     boolean uploaded = imageStream != null && imageSize > 0;
     String finalImageUrl =
@@ -76,7 +77,7 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
           status ->
               persistencePort.save(
                   new LoyaltyGift(
-                      storeId,
+                      storeUid,
                       command.name(),
                       command.description(),
                       command.pointsCost(),
@@ -92,22 +93,22 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
 
   @Override
   public LoyaltyGift updateGift(
-      Long storeId, Long giftId, GiftUpdateCommand command, Long userId, String userRole) {
-    return updateGift(storeId, giftId, command, null, 0, null, null, userId, userRole);
+      UUID storeUid, UUID giftUid, GiftUpdateCommand command, UUID userId, String userRole) {
+    return updateGift(storeUid, giftUid, command, null, 0, null, null, userId, userRole);
   }
 
   @Override
   public LoyaltyGift updateGift(
-      Long storeId,
-      Long giftId,
+      UUID storeUid,
+      UUID giftUid,
       GiftUpdateCommand command,
       InputStream imageStream,
       long imageSize,
       String originalFilename,
       String contentType,
-      Long userId,
+      UUID userId,
       String userRole) {
-    validateStoreOwnership(storeId, userId, userRole);
+    validateStoreOwnership(storeUid, userId, userRole);
 
     boolean uploaded = imageStream != null && imageSize > 0;
     String newImageUrl =
@@ -123,8 +124,8 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
               status -> {
                 LoyaltyGift gift =
                     persistencePort
-                        .findByIdAndStoreIdForUpdate(giftId, storeId)
-                        .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
+                        .findByUidAndStoreUidForUpdate(giftUid, storeUid)
+                        .orElseThrow(() -> new GiftNotFoundException(storeUid, giftUid));
                 previousImageUrl[0] = gift.getImageUrl();
                 String finalImageUrl =
                     newImageUrl != null
@@ -153,52 +154,52 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
 
   @Override
   public LoyaltyGift adjustStock(
-      Long storeId, Long giftId, int delta, Long userId, String userRole) {
-    validateStoreOwnership(storeId, userId, userRole);
+      UUID storeUid, UUID giftUid, int delta, UUID userId, String userRole) {
+    validateStoreOwnership(storeUid, userId, userRole);
     return transactionTemplate.execute(
         status -> {
           LoyaltyGift gift =
               persistencePort
-                  .findByIdAndStoreIdForUpdate(giftId, storeId)
-                  .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
+                  .findByUidAndStoreUidForUpdate(giftUid, storeUid)
+                  .orElseThrow(() -> new GiftNotFoundException(storeUid, giftUid));
           gift.adjustStock(delta);
           return persistencePort.save(gift);
         });
   }
 
   @Override
-  public void deleteGift(Long storeId, Long giftId, Long userId, String userRole) {
-    validateStoreOwnership(storeId, userId, userRole);
+  public void deleteGift(UUID storeUid, UUID giftUid, UUID userId, String userRole) {
+    validateStoreOwnership(storeUid, userId, userRole);
     transactionTemplate.executeWithoutResult(
         status -> {
           LoyaltyGift gift =
               persistencePort
-                  .findByIdAndStoreIdForUpdate(giftId, storeId)
-                  .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
-          persistencePort.deleteById(gift.getId());
+                  .findByUidAndStoreUidForUpdate(giftUid, storeUid)
+                  .orElseThrow(() -> new GiftNotFoundException(storeUid, giftUid));
+          persistencePort.deleteByUid(gift.getUid());
         });
   }
 
   @Override
   @Transactional(readOnly = true)
-  public List<LoyaltyGift> getGiftsByStore(Long storeId, boolean includeInactive) {
+  public List<LoyaltyGift> getGiftsByStore(UUID storeUid, boolean includeInactive) {
     if (includeInactive) {
-      return persistencePort.findByStoreId(storeId);
+      return persistencePort.findByStoreUid(storeUid);
     }
-    return persistencePort.findActiveByStoreId(storeId);
+    return persistencePort.findActiveByStoreUid(storeUid);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public LoyaltyGift getGiftById(Long storeId, Long giftId) {
+  public LoyaltyGift getGiftByUid(UUID storeUid, UUID giftUid) {
     return persistencePort
-        .findByIdAndStoreId(giftId, storeId)
-        .orElseThrow(() -> new GiftNotFoundException(storeId, giftId));
+        .findByUidAndStoreUid(giftUid, storeUid)
+        .orElseThrow(() -> new GiftNotFoundException(storeUid, giftUid));
   }
 
   @Override
-  public Optional<GiftImageResource> getGiftImage(Long storeId, Long giftId) {
-    LoyaltyGift gift = getGiftById(storeId, giftId);
+  public Optional<GiftImageResource> getGiftImage(UUID storeUid, UUID giftUid) {
+    LoyaltyGift gift = getGiftByUid(storeUid, giftUid);
     if (gift.getImageUrl() == null || gift.getImageUrl().isBlank()) {
       return Optional.empty();
     }
@@ -207,25 +208,27 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
 
   @Override
   @Transactional(readOnly = true)
-  public List<CatalogGiftItem> getPublicCatalog(Long storeId, String category) {
+  public List<CatalogGiftItem> getPublicCatalog(UUID storeUid, String category) {
     List<LoyaltyGift> activeGifts =
-        storeId != null
-            ? persistencePort.findActiveByStoreId(storeId)
+        storeUid != null
+            ? persistencePort.findActiveByStoreUid(storeUid)
             : persistencePort.findAllActive();
 
-    java.util.Map<Long, String> storeNames = new java.util.HashMap<>();
-    java.util.Map<Long, String> storeCategories = new java.util.HashMap<>();
+    java.util.Map<UUID, String> storeNames = new java.util.HashMap<>();
+    java.util.Map<UUID, String> storeCategories = new java.util.HashMap<>();
 
     return activeGifts.stream()
         .map(
             gift -> {
-              Long sId = gift.getStoreId();
+              UUID currentStoreUid = gift.getStoreUid();
               String sName =
                   storeNames.computeIfAbsent(
-                      sId, id -> storeVerificationPort.findStoreName(id).orElse(null));
+                      currentStoreUid,
+                      uid -> storeVerificationPort.findStoreName(uid).orElse(null));
               String sCat =
                   storeCategories.computeIfAbsent(
-                      sId, id -> storeVerificationPort.findStoreCategory(id).orElse(null));
+                      currentStoreUid,
+                      uid -> storeVerificationPort.findStoreCategory(uid).orElse(null));
               return CatalogGiftItem.of(gift, sName, sCat);
             })
         .filter(
@@ -251,22 +254,22 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
     }
   }
 
-  private void validateStoreOwnership(Long storeId, Long callerUserId, String callerRole) {
+  private void validateStoreOwnership(UUID storeUid, UUID callerUserId, String callerRole) {
     if (ROLE_ADMIN.equalsIgnoreCase(callerRole)) {
       return;
     }
     if (callerUserId == null) {
       throw new StoreAccessDeniedException(
-          "Missing user identifier for modifying store " + storeId);
+          "Missing user identifier for modifying store " + storeUid);
     }
-    Long ownerId =
+    UUID ownerUid =
         storeVerificationPort
-            .findStoreOwnerId(storeId)
-            .orElseThrow(() -> new StoreNotFoundException(storeId));
+            .findStoreOwnerUid(storeUid)
+            .orElseThrow(() -> new StoreNotFoundException(storeUid));
 
-    if (!ownerId.equals(callerUserId)) {
+    if (!ownerUid.equals(callerUserId)) {
       throw new StoreAccessDeniedException(
-          "Access denied: you are not the owner of store " + storeId);
+          "Access denied: you are not the owner of store " + storeUid);
     }
   }
 }

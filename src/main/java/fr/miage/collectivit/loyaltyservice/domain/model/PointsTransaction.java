@@ -4,12 +4,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 public record PointsTransaction(
     Long id,
+    UUID uid,
     String transactionReference,
     String userId,
-    Long storeId,
+    UUID storeUid,
     String storeName,
     PointsTransactionType type,
     BigDecimal points,
@@ -19,6 +21,9 @@ public record PointsTransaction(
     Instant createdAt) {
 
   public PointsTransaction {
+    if (uid == null) {
+      uid = UUID.randomUUID();
+    }
     if (transactionReference == null || transactionReference.isBlank()) {
       throw new IllegalArgumentException("transactionReference must not be blank");
     }

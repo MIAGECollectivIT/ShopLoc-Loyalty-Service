@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,9 +43,10 @@ class UserPointsPersistenceAdapterTest {
         savedAccount.id(),
         new PointsTransaction(
             null,
+            null,
             "PTS-REF-001",
             userId,
-            10L,
+            UUID.fromString("550e8400-e29b-41d4-a716-446655440010"),
             "Boulangerie Artisanale",
             PointsTransactionType.EARN,
             new BigDecimal("60.0"),
@@ -57,9 +59,10 @@ class UserPointsPersistenceAdapterTest {
         savedAccount.id(),
         new PointsTransaction(
             null,
+            null,
             "PTS-REF-002",
             userId,
-            11L,
+            UUID.fromString("550e8400-e29b-41d4-a716-446655440011"),
             "Fromagerie Locale",
             PointsTransactionType.REDEEM,
             new BigDecimal("10.0"),

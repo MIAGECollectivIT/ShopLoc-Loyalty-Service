@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,27 +68,27 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
   }
 
   @Override
-  public Optional<Long> findStoreOwnerId(Long storeId) {
-    return fetchStore(storeId).map(StoreDto::userId);
+  public Optional<UUID> findStoreOwnerUid(UUID storeUid) {
+    return fetchStore(storeUid).map(StoreDto::ownerUid);
   }
 
   @Override
-  public Optional<String> findStoreName(Long storeId) {
-    return fetchStore(storeId).map(StoreDto::name);
+  public Optional<String> findStoreName(UUID storeUid) {
+    return fetchStore(storeUid).map(StoreDto::name);
   }
 
   @Override
-  public Optional<String> findStoreCategory(Long storeId) {
-    return fetchStore(storeId).map(StoreDto::category);
+  public Optional<String> findStoreCategory(UUID storeUid) {
+    return fetchStore(storeUid).map(StoreDto::category);
   }
 
-  private Optional<StoreDto> fetchStore(Long storeId) {
+  private Optional<StoreDto> fetchStore(UUID storeUid) {
     try {
       Optional<String> bearerToken = resolveBearerToken();
       StoreDto store =
           restClient
               .get()
-              .uri("/v1/stores/{storeId}", storeId)
+              .uri("/v1/stores/{storeUid}", storeUid)
               .headers(
                   headers ->
                       bearerToken.ifPresent(
@@ -99,7 +100,7 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
                     if (log.isDebugEnabled()) {
                       log.debug(
                           "Store {} not found on Store Service (status {})",
-                          storeId,
+                          storeUid,
                           response.getStatusCode());
                     }
                   })
@@ -107,7 +108,7 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
       return Optional.ofNullable(store);
     } catch (RestClientException ex) {
       if (log.isWarnEnabled()) {
-        log.warn("Unable to verify store {} with Store Service: {}", storeId, ex.getMessage());
+        log.warn("Unable to verify store {} with Store Service: {}", storeUid, ex.getMessage());
       }
       return Optional.empty();
     }

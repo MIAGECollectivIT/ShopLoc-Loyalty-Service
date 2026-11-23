@@ -50,16 +50,15 @@ class UserPointsBalanceControllerTest {
     signingKey = Keys.hmacShaKeyFor(keyBytes);
   }
 
-  private String generateToken(String role, String userId, Long dbId) {
+  private String generateToken(String role, String userId) {
     long now = System.currentTimeMillis();
     var builder =
         Jwts.builder()
             .id(UUID.randomUUID().toString())
-            .subject(userId != null ? userId : String.valueOf(dbId))
+            .subject(userId != null ? userId : UUID.randomUUID().toString())
             .issuer("shoploc-auth-service")
             .issuedAt(new Date(now))
             .expiration(new Date(now + 3600000))
-            .claim("dbId", dbId)
             .claim("email", "client@shoploc.fr")
             .claim("role", role);
     if (userId != null) {
@@ -84,13 +83,16 @@ class UserPointsBalanceControllerTest {
   @DisplayName("SLE-176: Authenticated client querying own /balance should return 200 OK")
   void shouldReturnOwnBalanceOnSelfEndpoint() throws Exception {
     String userId = "550e8400-e29b-41d4-a716-446655440000";
+    UUID txUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440100");
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     Instant now = Instant.parse("2026-11-15T10:30:00Z");
     PointsTransaction earnTx =
         new PointsTransaction(
             1L,
+            txUid,
             "PTS-EARN-100",
             userId,
-            10L,
+            storeUid,
             "Librairie du Quartier",
             PointsTransactionType.EARN,
             new BigDecimal("15.0"),
@@ -104,7 +106,7 @@ class UserPointsBalanceControllerTest {
             new UserPointsBalance(
                 userId, "CL95001", new BigDecimal("125.0"), now, List.of(earnTx)));
 
-    String token = generateToken("CLIENT", userId, 100L);
+    String token = generateToken("CLIENT", userId);
 
     mockMvc
         .perform(get("/v1/loyalty/balance").header("Authorization", "Bearer " + token))
@@ -114,6 +116,8 @@ class UserPointsBalanceControllerTest {
         .andExpect(jsonPath("$.balance").value(125.0))
         .andExpect(jsonPath("$.points").value(125.0))
         .andExpect(jsonPath("$.transactions.length()").value(1))
+        .andExpect(jsonPath("$.transactions[0].uid").value(txUid.toString()))
+        .andExpect(jsonPath("$.transactions[0].storeUid").value(storeUid.toString()))
         .andExpect(jsonPath("$.transactions[0].transactionReference").value("PTS-EARN-100"))
         .andExpect(jsonPath("$.transactions[0].type").value("EARN"))
         .andExpect(jsonPath("$.transactions[0].points").value(15.0));
@@ -129,7 +133,7 @@ class UserPointsBalanceControllerTest {
         .thenReturn(
             new UserPointsBalance(userId, null, BigDecimal.ZERO, now, Collections.emptyList()));
 
-    String token = generateToken("CLIENT", userId, 42L);
+    String token = generateToken("CLIENT", userId);
 
     mockMvc
         .perform(
@@ -145,7 +149,7 @@ class UserPointsBalanceControllerTest {
   @Test
   @DisplayName("SLE-176: Client querying another user's balance or points should return 403 BOLA")
   void shouldReturn403ForCrossUserAccess() throws Exception {
-    String token = generateToken("CLIENT", "user-uuid-100", 100L);
+    String token = generateToken("CLIENT", "user-uuid-100");
 
     mockMvc
         .perform(
@@ -172,7 +176,7 @@ class UserPointsBalanceControllerTest {
             new UserPointsBalance(
                 targetUserId, "CL95555", new BigDecimal("80.0"), now, Collections.emptyList()));
 
-    String adminToken = generateToken("ADMIN", "admin-uuid-1", 1L);
+    String adminToken = generateToken("ADMIN", "admin-uuid-1");
 
     mockMvc
         .perform(
@@ -194,7 +198,7 @@ class UserPointsBalanceControllerTest {
             new UserPointsBalance(
                 targetUserId, "CL95555", new BigDecimal("80.0"), now, Collections.emptyList()));
 
-    String merchantToken = generateToken("MERCHANT", "merchant-uuid-1", 10L);
+    String merchantToken = generateToken("MERCHANT", "merchant-uuid-1");
 
     mockMvc
         .perform(
@@ -207,26 +211,9 @@ class UserPointsBalanceControllerTest {
   }
 
   @Test
-  @DisplayName("SLE-176: Client accessing via dbId fallback claim when userId claim is absent")
-  void shouldResolveDbIdOnSelfBalanceWhenUserIdClaimAbsent() throws Exception {
-    Instant now = Instant.parse("2026-11-15T11:00:00Z");
-    when(getUserPointsBalanceQuery.getUserPointsBalance("77"))
-        .thenReturn(new UserPointsBalance("77", null, new BigDecimal("10.0"), now, List.of()));
-
-    String token = generateToken("CLIENT", null, 77L);
-
-    mockMvc
-        .perform(get("/v1/loyalty/balance").header("Authorization", "Bearer " + token))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.userId").value("77"))
-        .andExpect(jsonPath("$.balance").value(10.0));
-  }
-
-  @Test
-  @DisplayName(
-      "SLE-176: Token missing both userId and dbId claims should return 403 Forbidden on /balance")
+  @DisplayName("SLE-176: Token missing userId claim should return 403 Forbidden on /balance")
   void shouldReturn403WhenTokenHasNoUserIdentifiers() throws Exception {
-    String token = generateToken("CLIENT", null, null);
+    String token = generateToken("CLIENT", null);
 
     mockMvc
         .perform(get("/v1/loyalty/balance").header("Authorization", "Bearer " + token))
@@ -237,7 +224,7 @@ class UserPointsBalanceControllerTest {
   @Test
   @DisplayName("SLE-176: Unsupported role should return 403 Forbidden")
   void shouldReturn403ForUnsupportedRole() throws Exception {
-    String token = generateToken("GUEST", "guest-uuid-1", 10L);
+    String token = generateToken("GUEST", "guest-uuid-1");
 
     mockMvc
         .perform(get("/v1/loyalty/balance").header("Authorization", "Bearer " + token))

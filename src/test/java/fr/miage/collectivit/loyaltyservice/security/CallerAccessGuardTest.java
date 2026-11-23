@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import fr.miage.collectivit.loyaltyservice.domain.exception.UserPointsAccessDeniedException;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -18,41 +19,61 @@ class CallerAccessGuardTest {
   @DisplayName("Should resolve trimmed userId when present on request")
   void shouldResolveUserId() {
     MockHttpServletRequest request = new MockHttpServletRequest();
-    request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "  user-uuid-123  ");
-    request.setAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID, 42L);
+    String uuid = "550e8400-e29b-41d4-a716-446655440123";
+    request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "  " + uuid + "  ");
 
     String resolved =
         guard.resolveAuthenticatedUserId(
             request, () -> new UserPointsAccessDeniedException("missing"));
 
-    assertThat(resolved).isEqualTo("user-uuid-123");
+    assertThat(resolved).isEqualTo(uuid);
+    assertThat(guard.resolveAuthenticatedUserUuid(request)).isEqualTo(UUID.fromString(uuid));
   }
 
   @Test
-  @DisplayName("Should fallback to dbId when userId claim is absent or blank")
-  void shouldFallbackToDbId() {
+  @DisplayName("Should resolve UUID attribute directly when stored as UUID")
+  void shouldResolveUuidAttributeDirectly() {
     MockHttpServletRequest request = new MockHttpServletRequest();
-    request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "   ");
-    request.setAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID, 77L);
+    UUID uuid = UUID.fromString("550e8400-e29b-41d4-a716-446655440777");
+    request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, uuid);
 
     String resolved =
         guard.resolveAuthenticatedUserId(
             request, () -> new UserPointsAccessDeniedException("missing"));
 
-    assertThat(resolved).isEqualTo("77");
+    assertThat(resolved).isEqualTo(uuid.toString());
+    assertThat(guard.resolveAuthenticatedUserUuid(request)).isEqualTo(uuid);
   }
 
   @Test
-  @DisplayName("Should throw configured exception when no caller identifier is present")
+  @DisplayName("Should throw configured exception when userId claim is absent or blank")
   void shouldThrowWhenNoIdentifierPresent() {
-    MockHttpServletRequest request = new MockHttpServletRequest();
-
+    MockHttpServletRequest emptyRequest = new MockHttpServletRequest();
     assertThatThrownBy(
             () ->
                 guard.resolveAuthenticatedUserId(
-                    request, () -> new UserPointsAccessDeniedException("missing identity")))
+                    emptyRequest, () -> new UserPointsAccessDeniedException("missing identity")))
         .isInstanceOf(UserPointsAccessDeniedException.class)
         .hasMessage("missing identity");
+    assertThat(guard.resolveAuthenticatedUserUuid(emptyRequest)).isNull();
+
+    MockHttpServletRequest blankRequest = new MockHttpServletRequest();
+    blankRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "   ");
+    assertThatThrownBy(
+            () ->
+                guard.resolveAuthenticatedUserId(
+                    blankRequest, () -> new UserPointsAccessDeniedException("missing identity")))
+        .isInstanceOf(UserPointsAccessDeniedException.class);
+    assertThat(guard.resolveAuthenticatedUserUuid(blankRequest)).isNull();
+  }
+
+  @Test
+  @DisplayName("Should return null UUID when userId attribute is not a valid UUID")
+  void shouldReturnNullUuidForMalformedUserId() {
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "not-a-uuid");
+
+    assertThat(guard.resolveAuthenticatedUserUuid(request)).isNull();
   }
 
   @Test
@@ -72,28 +93,19 @@ class CallerAccessGuardTest {
   }
 
   @Test
-  @DisplayName("Should allow owner matching userId (case-insensitive) or dbId")
-  void shouldAllowSelfByUserIdOrDbId() {
+  @DisplayName("Should allow owner matching userId (case-insensitive)")
+  void shouldAllowSelfByUserId() {
     MockHttpServletRequest byUuidRequest = new MockHttpServletRequest();
     byUuidRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ROLE, "CLIENT");
-    byUuidRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "User-Uuid-1");
+    byUuidRequest.setAttribute(
+        JwtAuthInterceptor.ATTR_USER_ID, "550E8400-E29B-41D4-A716-446655440001");
 
     assertThatCode(
             () ->
                 guard.verifyUserAccess(
-                    "  user-uuid-1 ",
+                    "  550e8400-e29b-41d4-a716-446655440001 ",
                     byUuidRequest,
                     () -> new UserPointsAccessDeniedException("denied")))
-        .doesNotThrowAnyException();
-
-    MockHttpServletRequest byDbIdRequest = new MockHttpServletRequest();
-    byDbIdRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_ROLE, "CLIENT");
-    byDbIdRequest.setAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID, 105L);
-
-    assertThatCode(
-            () ->
-                guard.verifyUserAccess(
-                    "105", byDbIdRequest, () -> new UserPointsAccessDeniedException("denied")))
         .doesNotThrowAnyException();
   }
 
@@ -103,7 +115,6 @@ class CallerAccessGuardTest {
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.setAttribute(JwtAuthInterceptor.ATTR_USER_ROLE, "CLIENT");
     request.setAttribute(JwtAuthInterceptor.ATTR_USER_ID, "user-100");
-    request.setAttribute(JwtAuthInterceptor.ATTR_USER_DB_ID, 100L);
 
     assertThatThrownBy(
             () ->

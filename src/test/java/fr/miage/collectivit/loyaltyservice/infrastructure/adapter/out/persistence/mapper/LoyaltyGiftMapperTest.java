@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.entity.LoyaltyGiftJpaEntity;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,10 +18,13 @@ class LoyaltyGiftMapperTest {
   @DisplayName("Should map entity to domain correctly")
   void shouldMapEntityToDomain() {
     Instant now = Instant.parse("2026-11-16T12:00:00Z");
+    UUID uid = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     LoyaltyGiftJpaEntity entity =
         LoyaltyGiftJpaEntity.builder()
             .id(1L)
-            .storeId(10L)
+            .uid(uid)
+            .storeUid(storeUid)
             .name("Mug Collectiv'IT")
             .description("Mug en céramique")
             .pointsCost(80)
@@ -35,7 +39,8 @@ class LoyaltyGiftMapperTest {
 
     assertThat(domain).isNotNull();
     assertThat(domain.getId()).isEqualTo(1L);
-    assertThat(domain.getStoreId()).isEqualTo(10L);
+    assertThat(domain.getUid()).isEqualTo(uid);
+    assertThat(domain.getStoreUid()).isEqualTo(storeUid);
     assertThat(domain.getName()).isEqualTo("Mug Collectiv'IT");
     assertThat(domain.getDescription()).isEqualTo("Mug en céramique");
     assertThat(domain.getPointsCost()).isEqualTo(80);
@@ -48,10 +53,13 @@ class LoyaltyGiftMapperTest {
   @DisplayName("Should map domain to entity correctly")
   void shouldMapDomainToEntity() {
     Instant now = Instant.parse("2026-11-16T12:00:00Z");
+    UUID uid = UUID.fromString("550e8400-e29b-41d4-a716-446655440001");
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
     LoyaltyGift domain =
         new LoyaltyGift(
             1L,
-            10L,
+            uid,
+            storeUid,
             "Mug Collectiv'IT",
             "Mug en céramique",
             80,
@@ -65,7 +73,8 @@ class LoyaltyGiftMapperTest {
 
     assertThat(entity).isNotNull();
     assertThat(entity.getId()).isEqualTo(1L);
-    assertThat(entity.getStoreId()).isEqualTo(10L);
+    assertThat(entity.getUid()).isEqualTo(uid);
+    assertThat(entity.getStoreUid()).isEqualTo(storeUid);
     assertThat(entity.getName()).isEqualTo("Mug Collectiv'IT");
     assertThat(entity.getDescription()).isEqualTo("Mug en céramique");
     assertThat(entity.getPointsCost()).isEqualTo(80);

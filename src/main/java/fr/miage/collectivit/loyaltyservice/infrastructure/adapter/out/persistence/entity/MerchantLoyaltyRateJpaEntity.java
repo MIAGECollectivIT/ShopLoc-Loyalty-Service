@@ -10,6 +10,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,8 +33,11 @@ public class MerchantLoyaltyRateJpaEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "store_id", nullable = false, unique = true)
-  private Long storeId;
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
+
+  @Column(name = "store_uid", unique = true)
+  private UUID storeUid;
 
   @Column(name = "euro_amount", nullable = false, precision = 10, scale = 2)
   private BigDecimal euroAmount;
@@ -49,6 +53,9 @@ public class MerchantLoyaltyRateJpaEntity {
 
   @PrePersist
   protected void onCreate() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
     Instant now = Instant.now();
     if (this.createdAt == null) {
       this.createdAt = now;

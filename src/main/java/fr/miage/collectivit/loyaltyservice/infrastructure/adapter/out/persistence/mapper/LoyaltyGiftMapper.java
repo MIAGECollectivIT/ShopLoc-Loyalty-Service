@@ -14,7 +14,8 @@ public class LoyaltyGiftMapper {
     }
     return new LoyaltyGift(
         entity.getId(),
-        entity.getStoreId(),
+        entity.getUid(),
+        entity.getStoreUid(),
         entity.getName(),
         entity.getDescription(),
         entity.getPointsCost(),
@@ -31,7 +32,8 @@ public class LoyaltyGiftMapper {
     }
     return LoyaltyGiftJpaEntity.builder()
         .id(domain.getId())
-        .storeId(domain.getStoreId())
+        .uid(domain.getUid())
+        .storeUid(domain.getStoreUid())
         .name(domain.getName())
         .description(domain.getDescription())
         .pointsCost(domain.getPointsCost())

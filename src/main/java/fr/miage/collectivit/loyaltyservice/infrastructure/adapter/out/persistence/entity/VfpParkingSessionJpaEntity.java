@@ -5,9 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,6 +29,9 @@ public class VfpParkingSessionJpaEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(name = "uid", nullable = false, unique = true, updatable = false)
+  private UUID uid;
 
   @Column(name = "user_id", nullable = false, length = 64)
   private String userId;
@@ -51,4 +56,14 @@ public class VfpParkingSessionJpaEntity {
 
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
+
+  @PrePersist
+  protected void onCreate() {
+    if (this.uid == null) {
+      this.uid = UUID.randomUUID();
+    }
+    if (this.createdAt == null) {
+      this.createdAt = Instant.now();
+    }
+  }
 }

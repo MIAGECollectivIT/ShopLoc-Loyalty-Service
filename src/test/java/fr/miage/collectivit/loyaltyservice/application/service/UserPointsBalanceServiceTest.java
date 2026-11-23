@@ -18,6 +18,7 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,9 +59,10 @@ class UserPointsBalanceServiceTest {
     PointsTransaction tx1 =
         new PointsTransaction(
             10L,
+            UUID.fromString("550e8400-e29b-41d4-a716-446655440010"),
             "PTS-EARN-001",
             userId,
-            5L,
+            UUID.fromString("550e8400-e29b-41d4-a716-446655440005"),
             "Boulangerie du Centre",
             PointsTransactionType.EARN,
             new BigDecimal("12.5"),
@@ -72,9 +74,10 @@ class UserPointsBalanceServiceTest {
     PointsTransaction tx2 =
         new PointsTransaction(
             9L,
+            UUID.fromString("550e8400-e29b-41d4-a716-446655440009"),
             "PTS-REDEEM-001",
             userId,
-            7L,
+            UUID.fromString("550e8400-e29b-41d4-a716-446655440007"),
             "Primeur Local",
             PointsTransactionType.REDEEM,
             new BigDecimal("20.0"),

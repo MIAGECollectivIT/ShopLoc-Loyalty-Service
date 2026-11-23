@@ -3,11 +3,12 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto;
 import fr.miage.collectivit.loyaltyservice.domain.model.MerchantLoyaltyRate;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 /** Response DTO containing the loyalty rate configuration for a store. */
 public record MerchantLoyaltyRateResponse(
-    Long id,
-    Long storeId,
+    UUID uid,
+    UUID storeUid,
     BigDecimal euroAmount,
     BigDecimal pointsReward,
     Instant createdAt,
@@ -18,15 +19,15 @@ public record MerchantLoyaltyRateResponse(
       return null;
     }
     return new MerchantLoyaltyRateResponse(
-        domain.getId(),
-        domain.getStoreId(),
+        domain.getUid(),
+        domain.getStoreUid(),
         domain.getEuroAmount(),
         domain.getPointsReward(),
         domain.getCreatedAt(),
         domain.getUpdatedAt());
   }
 
-  public static MerchantLoyaltyRateResponse defaultRate(Long storeId) {
-    return fromDomain(MerchantLoyaltyRate.defaultForStore(storeId));
+  public static MerchantLoyaltyRateResponse defaultRate(UUID storeUid) {
+    return fromDomain(MerchantLoyaltyRate.defaultForStore(storeUid));
   }
 }

@@ -51,7 +51,7 @@ class UserVfpStatusControllerTest {
     signingKey = Keys.hmacShaKeyFor(keyBytes);
   }
 
-  private String generateToken(String role, String userId, Long dbId) {
+  private String generateToken(String role, String userId) {
     long now = System.currentTimeMillis();
     return Jwts.builder()
         .id(UUID.randomUUID().toString())
@@ -60,7 +60,6 @@ class UserVfpStatusControllerTest {
         .issuedAt(new Date(now))
         .expiration(new Date(now + 3600000))
         .claim("userId", userId)
-        .claim("dbId", dbId)
         .claim("email", userId + "@shoploc.fr")
         .claim("role", role)
         .signWith(signingKey)
@@ -71,7 +70,7 @@ class UserVfpStatusControllerTest {
   @DisplayName("Should return 200 OK with VFP status for self-requesting client")
   void shouldReturnStatusForSelfUser() throws Exception {
     String userId = "USER-123";
-    String token = generateToken("CLIENT", userId, 1L);
+    String token = generateToken("CLIENT", userId);
     Instant now = Instant.parse("2026-11-14T12:00:00Z");
 
     UserVfpStatus persistedStatus = new UserVfpStatus(userId, true, now, null, now);
@@ -97,7 +96,7 @@ class UserVfpStatusControllerTest {
   @DisplayName("Should return 200 OK for admin requesting any user's VFP status")
   void shouldReturnStatusForAdmin() throws Exception {
     String targetUserId = "USER-TARGET";
-    String adminToken = generateToken("ADMIN", "admin-user", 99L);
+    String adminToken = generateToken("ADMIN", "admin-user");
     Instant now = Instant.parse("2026-11-14T12:00:00Z");
 
     UserVfpStatus persistedStatus = new UserVfpStatus(targetUserId, false, null, null, now);
@@ -121,7 +120,7 @@ class UserVfpStatusControllerTest {
   @DisplayName(
       "Should return 403 Forbidden when client attempts to access another user's VFP status")
   void shouldReturnForbiddenWhenAccessingOtherUser() throws Exception {
-    String token = generateToken("CLIENT", "USER-CLIENT-A", 10L);
+    String token = generateToken("CLIENT", "USER-CLIENT-A");
 
     mockMvc
         .perform(
