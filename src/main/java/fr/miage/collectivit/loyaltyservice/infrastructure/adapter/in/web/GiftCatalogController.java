@@ -9,6 +9,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.Gif
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftStockAdjustRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftUpdateRequest;
 import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
+import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
 import fr.miage.collectivit.loyaltyservice.security.RequiresRole;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -66,6 +67,7 @@ public class GiftCatalogController {
   private final GetGiftCatalogQuery getGiftCatalogQuery;
 
   @GetMapping
+  @PublicEndpoint
   @Operation(
       summary = "Lister les cadeaux fidélité d'un commerce",
       description = "Retourne la liste des articles cadeaux d'un commerce. Accès public.")
@@ -87,6 +89,7 @@ public class GiftCatalogController {
   }
 
   @GetMapping("/{giftId}")
+  @PublicEndpoint
   @Operation(
       summary = "Consulter le détail d'un article cadeau",
       description =
@@ -110,6 +113,7 @@ public class GiftCatalogController {
   }
 
   @GetMapping("/{giftId}/image")
+  @PublicEndpoint
   @Operation(
       summary = "Récupérer l'image binaire d'un article cadeau",
       description =

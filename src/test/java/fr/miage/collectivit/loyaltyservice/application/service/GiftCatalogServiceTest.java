@@ -336,4 +336,65 @@ class GiftCatalogServiceTest {
 
     assertThat(resource).isEmpty();
   }
+
+  @Test
+  @DisplayName("Should retrieve public catalog enriched with store name and category")
+  void shouldRetrievePublicCatalogEnrichedWithStoreInfo() {
+    LoyaltyGift gift1 =
+        new LoyaltyGift(1L, 10L, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
+    LoyaltyGift gift2 = new LoyaltyGift(2L, 20L, "Livre", "Roman", 100, 5, null, true, null, null);
+
+    when(persistencePort.findAllActive()).thenReturn(List.of(gift1, gift2));
+    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
+    when(storeVerificationPort.findStoreName(20L)).thenReturn(Optional.of("Librairie"));
+    when(storeVerificationPort.findStoreCategory(20L)).thenReturn(Optional.of("Culture"));
+
+    var items = service.getPublicCatalog(null, null);
+
+    assertThat(items).hasSize(2);
+    assertThat(items.get(0).name()).isEqualTo("Croissant");
+    assertThat(items.get(0).storeName()).isEqualTo("Boulangerie Paul");
+    assertThat(items.get(0).category()).isEqualTo("Alimentation");
+    assertThat(items.get(1).name()).isEqualTo("Livre");
+    assertThat(items.get(1).storeName()).isEqualTo("Librairie");
+    assertThat(items.get(1).category()).isEqualTo("Culture");
+  }
+
+  @Test
+  @DisplayName("Should filter public catalog by category case-insensitively")
+  void shouldFilterPublicCatalogByCategory() {
+    LoyaltyGift gift1 =
+        new LoyaltyGift(1L, 10L, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
+    LoyaltyGift gift2 = new LoyaltyGift(2L, 20L, "Livre", "Roman", 100, 5, null, true, null, null);
+
+    when(persistencePort.findAllActive()).thenReturn(List.of(gift1, gift2));
+    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
+    when(storeVerificationPort.findStoreName(20L)).thenReturn(Optional.of("Librairie"));
+    when(storeVerificationPort.findStoreCategory(20L)).thenReturn(Optional.of("Culture"));
+
+    var items = service.getPublicCatalog(null, "culture");
+
+    assertThat(items).hasSize(1);
+    assertThat(items.get(0).name()).isEqualTo("Livre");
+    assertThat(items.get(0).category()).isEqualTo("Culture");
+  }
+
+  @Test
+  @DisplayName("Should filter public catalog by storeId")
+  void shouldFilterPublicCatalogByStoreId() {
+    LoyaltyGift gift1 =
+        new LoyaltyGift(1L, 10L, "Croissant", "Viennoiserie", 50, 20, null, true, null, null);
+
+    when(persistencePort.findActiveByStoreId(10L)).thenReturn(List.of(gift1));
+    when(storeVerificationPort.findStoreName(10L)).thenReturn(Optional.of("Boulangerie Paul"));
+    when(storeVerificationPort.findStoreCategory(10L)).thenReturn(Optional.of("Alimentation"));
+
+    var items = service.getPublicCatalog(10L, null);
+
+    assertThat(items).hasSize(1);
+    assertThat(items.get(0).name()).isEqualTo("Croissant");
+    assertThat(items.get(0).storeId()).isEqualTo(10L);
+  }
 }

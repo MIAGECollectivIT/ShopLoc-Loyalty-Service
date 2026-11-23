@@ -93,6 +93,8 @@ services:
     url: ${STORE_SERVICE_URL:http://store-service:8080}
   sales-service:
     url: ${SALES_SERVICE_URL:http://sales-service:8080}
+  parking-gateway:
+    url: ${EXTERNAL_MOCK_SERVICE_URL:http://external-mock-service:8080}
 
 s3:
   endpoint: ${S3_ENDPOINT:http://minio:9000}

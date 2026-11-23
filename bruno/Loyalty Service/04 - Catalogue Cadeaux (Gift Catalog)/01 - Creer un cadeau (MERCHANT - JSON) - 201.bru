@@ -1,0 +1,39 @@
+meta {
+  name: 01 - Creer un cadeau (MERCHANT - JSON) - 201
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Mug ShopLoc Collector",
+    "description": "Mug en céramique blanche avec logo ShopLoc",
+    "pointsCost": 80,
+    "stock": 25,
+    "imageUrl": "https://cdn.shoploc.fr/gifts/mug.png"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.name: eq "Mug ShopLoc Collector"
+  res.body.pointsCost: eq 80
+  res.body.stock: eq 25
+  res.body.active: eq true
+  res.body.id: isDefined
+}
+

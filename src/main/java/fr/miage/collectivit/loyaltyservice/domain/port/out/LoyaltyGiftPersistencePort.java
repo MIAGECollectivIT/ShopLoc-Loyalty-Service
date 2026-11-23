@@ -21,5 +21,7 @@ public interface LoyaltyGiftPersistencePort {
 
   List<LoyaltyGift> findActiveByStoreId(Long storeId);
 
+  List<LoyaltyGift> findAllActive();
+
   void deleteById(Long id);
 }

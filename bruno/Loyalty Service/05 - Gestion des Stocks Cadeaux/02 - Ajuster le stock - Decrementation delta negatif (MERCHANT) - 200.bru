@@ -1,0 +1,32 @@
+meta {
+  name: 02 - Ajuster le stock - Decrementation delta negatif (MERCHANT) - 200
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "delta": -2
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{giftId}}
+  res.body.stock: isDefined
+}
+

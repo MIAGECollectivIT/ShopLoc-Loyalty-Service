@@ -1,0 +1,36 @@
+meta {
+  name: 11 - Mettre a jour un cadeau (MERCHANT - JSON) - 200
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Mug ShopLoc Collector XL",
+    "description": "Nouvelle version grande contenance en porcelaine",
+    "pointsCost": 90,
+    "imageUrl": "https://cdn.shoploc.fr/gifts/mug-xl.png"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{giftId}}
+  res.body.name: eq "Mug ShopLoc Collector XL"
+  res.body.pointsCost: eq 90
+}
+

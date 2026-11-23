@@ -1,0 +1,28 @@
+meta {
+  name: 04 - Rejet ajustement sans quantite (body vide) - 400
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts/{{giftId}}/stock
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 400
+}
+

@@ -49,11 +49,12 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
       return true;
     }
 
+    boolean isPublic = isPublicEndpoint(handler);
     RequiresRole requiresRole = extractRequiresRole(handler);
     Optional<String> tokenOpt = extractBearerToken(request);
 
     if (tokenOpt.isEmpty()) {
-      return handleMissingToken(requiresRole, response);
+      return handleMissingToken(isPublic, requiresRole, response);
     }
 
     String token = tokenOpt.get();
@@ -61,13 +62,25 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     try {
       claims = jwtValidatorService.validateAndExtractClaims(token);
     } catch (JwtException | IllegalArgumentException | SecurityException ex) {
-      return handleInvalidToken(requiresRole, response, path, ex);
+      return handleInvalidToken(isPublic, requiresRole, response, path, ex);
     }
 
     String userRole = jwtValidatorService.extractRole(claims);
     populateRequestAttributes(request, claims, userRole, token);
 
     return checkRoleAuthorization(requiresRole, userRole, response);
+  }
+
+  private boolean isPublicEndpoint(Object handler) {
+    if (handler instanceof HandlerMethod handlerMethod) {
+      return handlerMethod.hasMethodAnnotation(PublicEndpoint.class)
+          || handlerMethod.getBeanType().isAnnotationPresent(PublicEndpoint.class)
+          || handlerMethod.hasMethodAnnotation(jakarta.annotation.security.PermitAll.class)
+          || handlerMethod
+              .getBeanType()
+              .isAnnotationPresent(jakarta.annotation.security.PermitAll.class);
+    }
+    return false;
   }
 
   private RequiresRole extractRequiresRole(Object handler) {
@@ -91,33 +104,38 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     return token.isEmpty() ? Optional.empty() : Optional.of(token);
   }
 
-  private boolean handleMissingToken(RequiresRole requiresRole, HttpServletResponse response)
+  private boolean handleMissingToken(
+      boolean isPublic, RequiresRole requiresRole, HttpServletResponse response)
       throws IOException {
-    if (requiresRole != null) {
-      response.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED,
-          "Missing or invalid authorization header. A JWT Bearer token is required.");
-      return false;
+    if (isPublic && requiresRole == null) {
+      return true;
     }
-    return true;
+    response.sendError(
+        HttpServletResponse.SC_UNAUTHORIZED,
+        "Missing or invalid authorization header. A JWT Bearer token is required.");
+    return false;
   }
 
   private boolean handleInvalidToken(
-      RequiresRole requiresRole, HttpServletResponse response, String path, Exception ex)
+      boolean isPublic,
+      RequiresRole requiresRole,
+      HttpServletResponse response,
+      String path,
+      Exception ex)
       throws IOException {
-    if (requiresRole != null) {
-      response.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED,
-          "Invalid or expired authentication token: " + ex.getMessage());
-      return false;
+    if (isPublic && requiresRole == null) {
+      if (log.isDebugEnabled()) {
+        log.debug(
+            "Invalid token on public endpoint {}. Anonymous access allowed: {}",
+            path,
+            ex.getMessage());
+      }
+      return true;
     }
-    if (log.isDebugEnabled()) {
-      log.debug(
-          "Invalid token on public endpoint {}. Anonymous access allowed: {}",
-          path,
-          ex.getMessage());
-    }
-    return true;
+    response.sendError(
+        HttpServletResponse.SC_UNAUTHORIZED,
+        "Invalid or expired authentication token: " + ex.getMessage());
+    return false;
   }
 
   private void populateRequestAttributes(

@@ -32,7 +32,7 @@ class FlywayMigrationIntegrationTest {
 
     MigrateResult result = flyway.migrate();
 
-    assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(5);
-    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("5");
+    assertThat(result.migrationsExecuted).isGreaterThanOrEqualTo(6);
+    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("6");
   }
 }
