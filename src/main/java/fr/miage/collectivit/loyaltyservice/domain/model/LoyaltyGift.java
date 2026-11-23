@@ -26,6 +26,7 @@ public class LoyaltyGift {
   private Instant createdAt;
   private Instant updatedAt;
 
+  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       UUID storeUid,
       String name,
@@ -47,6 +48,7 @@ public class LoyaltyGift {
         Instant.now());
   }
 
+  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       Long id,
       UUID uid,

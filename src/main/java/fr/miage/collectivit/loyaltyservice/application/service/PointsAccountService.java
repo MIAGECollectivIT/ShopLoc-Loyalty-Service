@@ -37,7 +37,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.GodClass", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.GodClass", "PMD.TooManyMethods", "PMD.ExcessiveImports"})
 public class PointsAccountService
     implements ConfigureMerchantLoyaltyRateUseCase,
         GetMerchantLoyaltyRateQuery,
