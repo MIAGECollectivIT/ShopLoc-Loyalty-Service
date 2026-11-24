@@ -48,7 +48,7 @@ public class ParkingSessionSteps extends AbstractScenario {
 
   private MockMvc mockMvc;
 
-  @Before("@parking")
+  @Before("@parking or @transit")
   public void setUpScenario() {
     mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     parkingSessionRepository.deleteAll();

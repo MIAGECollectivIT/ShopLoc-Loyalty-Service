@@ -13,6 +13,7 @@ import fr.miage.collectivit.loyaltyservice.domain.port.in.ActivateParkingSession
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetVfpDailyEligibilityQuery;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingGatewayPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingSessionPersistencePort;
+import fr.miage.collectivit.loyaltyservice.domain.port.out.TransitTicketPersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVehiclesPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVfpPersistencePort;
 import java.time.Clock;
@@ -39,12 +40,14 @@ public class ParkingSessionService
 
   public static final ZoneId BUSINESS_ZONE = ZoneId.of("Europe/Paris");
   public static final String BENEFIT_PARKING = "PARKING";
+  public static final String BENEFIT_TRANSIT = "TRANSIT";
   private static final String TICKET_PREFIX = "PARK-";
 
   private final UserVfpPersistencePort userVfpPersistencePort;
   private final UserVehiclesPort userVehiclesPort;
   private final ParkingGatewayPort parkingGatewayPort;
   private final ParkingSessionPersistencePort parkingSessionPersistencePort;
+  private final TransitTicketPersistencePort transitTicketPersistencePort;
   private final Clock clock;
 
   @Autowired
@@ -52,12 +55,14 @@ public class ParkingSessionService
       UserVfpPersistencePort userVfpPersistencePort,
       UserVehiclesPort userVehiclesPort,
       ParkingGatewayPort parkingGatewayPort,
-      ParkingSessionPersistencePort parkingSessionPersistencePort) {
+      ParkingSessionPersistencePort parkingSessionPersistencePort,
+      TransitTicketPersistencePort transitTicketPersistencePort) {
     this(
         userVfpPersistencePort,
         userVehiclesPort,
         parkingGatewayPort,
         parkingSessionPersistencePort,
+        transitTicketPersistencePort,
         Clock.systemUTC());
   }
 
@@ -66,11 +71,13 @@ public class ParkingSessionService
       UserVehiclesPort userVehiclesPort,
       ParkingGatewayPort parkingGatewayPort,
       ParkingSessionPersistencePort parkingSessionPersistencePort,
+      TransitTicketPersistencePort transitTicketPersistencePort,
       Clock clock) {
     this.userVfpPersistencePort = userVfpPersistencePort;
     this.userVehiclesPort = userVehiclesPort;
     this.parkingGatewayPort = parkingGatewayPort;
     this.parkingSessionPersistencePort = parkingSessionPersistencePort;
+    this.transitTicketPersistencePort = transitTicketPersistencePort;
     this.clock = clock;
   }
 
@@ -119,13 +126,16 @@ public class ParkingSessionService
         parkingSessionPersistencePort.findLatestByUserAndDate(cleanUserId, todayParis);
 
     boolean parkingUsedToday = todaySession.isPresent();
+    boolean transitUsedToday =
+        transitTicketPersistencePort.existsForUserOnDate(cleanUserId, todayParis);
     VfpParkingSession activeSession =
         todaySession.filter(session -> session.getExpiresAt().isAfter(now)).orElse(null);
-    boolean eligible = isVfp && !parkingUsedToday;
-    String consumedBenefitType = parkingUsedToday ? BENEFIT_PARKING : null;
+    boolean eligible = isVfp && !parkingUsedToday && !transitUsedToday;
+    String consumedBenefitType =
+        parkingUsedToday ? BENEFIT_PARKING : (transitUsedToday ? BENEFIT_TRANSIT : null);
 
     return new VfpDailyEligibility(
-        isVfp, eligible, parkingUsedToday, false, consumedBenefitType, activeSession);
+        isVfp, eligible, parkingUsedToday, transitUsedToday, consumedBenefitType, activeSession);
   }
 
   private String validateUserId(String userId) {
@@ -139,6 +149,10 @@ public class ParkingSessionService
     if (parkingSessionPersistencePort.existsForUserOnDate(userId, sessionDate)) {
       throw new ParkingSessionAlreadyUsedException(
           "Daily free VFP parking session has already been activated today");
+    }
+    if (transitTicketPersistencePort.existsForUserOnDate(userId, sessionDate)) {
+      throw new ParkingSessionAlreadyUsedException(
+          "Daily institutional benefit already consumed today (transit ticket active or used)");
     }
   }
 

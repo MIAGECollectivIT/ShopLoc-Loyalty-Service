@@ -95,6 +95,8 @@ services:
     url: ${SALES_SERVICE_URL:http://sales-service:8080}
   parking-gateway:
     url: ${EXTERNAL_MOCK_SERVICE_URL:http://external-mock-service:8080}
+  transit-gateway:
+    url: ${SERVICES_TRANSIT_GATEWAY_URL:${EXTERNAL_MOCK_SERVICE_URL:http://external-mock-service:8080}}
 
 s3:
   endpoint: ${S3_ENDPOINT:http://minio:9000}
