@@ -18,6 +18,7 @@ import fr.miage.collectivit.loyaltyservice.domain.model.VfpDailyEligibility;
 import fr.miage.collectivit.loyaltyservice.domain.model.VfpParkingSession;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingGatewayPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.ParkingSessionPersistencePort;
+import fr.miage.collectivit.loyaltyservice.domain.port.out.TransitTicketPersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVehiclesPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVfpPersistencePort;
 import java.time.Clock;
@@ -46,6 +47,7 @@ class ParkingSessionServiceTest {
   @Mock private UserVehiclesPort userVehiclesPort;
   @Mock private ParkingGatewayPort parkingGatewayPort;
   @Mock private ParkingSessionPersistencePort parkingSessionPersistencePort;
+  @Mock private TransitTicketPersistencePort transitTicketPersistencePort;
 
   private ParkingSessionService service;
 
@@ -58,6 +60,7 @@ class ParkingSessionServiceTest {
             userVehiclesPort,
             parkingGatewayPort,
             parkingSessionPersistencePort,
+            transitTicketPersistencePort,
             fixedClock);
   }
 
@@ -185,6 +188,7 @@ class ParkingSessionServiceTest {
             userVehiclesPort,
             parkingGatewayPort,
             parkingSessionPersistencePort,
+            transitTicketPersistencePort,
             Clock.fixed(dstFallbackStart, ZoneOffset.UTC));
 
     LocalDate parisDate = LocalDate.of(2026, 10, 25);
