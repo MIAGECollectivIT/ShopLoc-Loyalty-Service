@@ -47,7 +47,7 @@ bruno/Loyalty Service/
 │   ├── 15 - Rejet suppression cadeau par role CLIENT - 403.bru
 │   └── 16 - Rejet ajustement stock cadeau par role CLIENT - 403.bru
 │
-├── 04 - Catalogue Cadeaux (Gift Catalog)/ # Catalogue de lots et cadeaux (SLE-60, SLE-39 & SLE-49)
+├── 04 - Catalogue Cadeaux (Gift Catalog)/ # Catalogue de lots et cadeaux
 │   ├── 01 - Creer un cadeau (MERCHANT - JSON) - 201.bru
 │   ├── 02 - Creer un cadeau avec photo S3 (multipart) - 201.bru
 │   ├── 03 - Creer un cadeau (ADMIN) - 201.bru
@@ -63,7 +63,7 @@ bruno/Loyalty Service/
 │   ├── 13 - Consulter l image binaire S3 d un cadeau (Public) - 200.bru
 │   ├── 14 - Supprimer un cadeau (MERCHANT) - 204.bru
 │   ├── 15 - Consulter un cadeau supprime - 404.bru
-│   └── 16 - Creer un cadeau exclusif VFP (MERCHANT - JSON - SLE-49) - 201.bru
+│   └── 16 - Creer un cadeau exclusif VFP (MERCHANT - JSON) - 201.bru
 │
 └── 05 - Gestion des Stocks Cadeaux/ # Reapprovisionnement et decrement atomique
     ├── 01 - Ajuster le stock - Reapprovisionnement delta positif (MERCHANT) - 200.bru

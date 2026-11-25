@@ -293,7 +293,7 @@ sequenceDiagram
 
 ---
 
-## 6. Gift Catalog & VFP-Exclusive Gifts (SLE-60 / SLE-39 / SLE-49)
+## 6. Gift Catalog & VFP-Exclusive Gifts
 
 The gift catalog domain follows the same hexagonal isolation:
 
