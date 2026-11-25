@@ -2,13 +2,13 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -28,12 +28,14 @@ class GlobalExceptionHandlerTest {
     DataIntegrityViolationException ex =
         new DataIntegrityViolationException("duplicate key value violates unique constraint");
 
-    ResponseEntity<Map<String, Object>> response = handler.handleDataIntegrityViolation(ex);
+    ResponseEntity<ProblemDetail> response = handler.handleDataIntegrityViolation(ex);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().get("status")).isEqualTo(HttpStatus.CONFLICT.value());
-    assertThat(response.getBody().get("message"))
+    assertThat(response.getBody().getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+    assertThat(response.getBody().getDetail())
+        .isEqualTo("A database conflict occurred while updating loyalty rate for store.");
+    assertThat(response.getBody().getProperties().get("message"))
         .isEqualTo("A database conflict occurred while updating loyalty rate for store.");
   }
 
@@ -48,10 +50,11 @@ class GlobalExceptionHandlerTest {
             null,
             new IllegalArgumentException("Invalid UUID"));
 
-    ResponseEntity<Map<String, Object>> response = handler.handleBadRequestExceptions(ex);
+    ResponseEntity<ProblemDetail> response = handler.handleBadRequestExceptions(ex);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().get("status")).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(response.getBody().getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+    assertThat(response.getBody().getTitle()).isEqualTo(HttpStatus.BAD_REQUEST.getReasonPhrase());
   }
 }

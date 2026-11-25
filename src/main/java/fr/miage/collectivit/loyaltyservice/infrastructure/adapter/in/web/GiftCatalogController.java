@@ -8,6 +8,7 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.Gif
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftResponse;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftStockAdjustRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftUpdateRequest;
+import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.PageResponse;
 import fr.miage.collectivit.loyaltyservice.security.CallerAccessGuard;
 import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
 import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
@@ -57,7 +58,8 @@ import org.springframework.web.multipart.MultipartFile;
   "PMD.ExcessiveImports",
   "PMD.AvoidDuplicateLiterals",
   "PMD.CloseResource",
-  "PMD.LawOfDemeter"
+  "PMD.LawOfDemeter",
+  "PMD.TooManyMethods"
 })
 public class GiftCatalogController {
 
@@ -89,6 +91,35 @@ public class GiftCatalogController {
             .map(GiftResponse::fromDomain)
             .toList();
     return ResponseEntity.ok(responses);
+  }
+
+  @GetMapping("/page")
+  @PublicEndpoint
+  @Operation(
+      summary = "Lister les cadeaux fidélité d'un commerce (paginé)",
+      description = "Retourne la page des articles cadeaux d'un commerce. Accès public.")
+  @ApiResponses(
+      value = {@ApiResponse(responseCode = "200", description = "Page des cadeaux récupérée")})
+  public ResponseEntity<PageResponse<GiftResponse>> getGiftsPage(
+      @Parameter(
+              description = "Identifiant UUID du commerce",
+              example = "550e8400-e29b-41d4-a716-446655440000")
+          @PathVariable
+          UUID storeUid,
+      @Parameter(description = "Inclure les articles inactifs")
+          @RequestParam(required = false, defaultValue = "false")
+          boolean includeInactive,
+      @Parameter(description = "Numéro de page (0-indexé)", example = "0")
+          @RequestParam(required = false, defaultValue = "0")
+          int page,
+      @Parameter(description = "Taille de la page", example = "20")
+          @RequestParam(required = false, defaultValue = "20")
+          int size) {
+    List<GiftResponse> responses =
+        getGiftCatalogQuery.getGiftsByStore(storeUid, includeInactive).stream()
+            .map(GiftResponse::fromDomain)
+            .toList();
+    return ResponseEntity.ok(PageResponse.of(responses, page, size));
   }
 
   @GetMapping("/{giftUid}")

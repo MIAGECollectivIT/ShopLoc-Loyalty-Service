@@ -53,12 +53,21 @@ public class KafkaConsumerConfig {
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
     props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class.getName());
     props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-    props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+    props.put(
+        JsonDeserializer.TRUSTED_PACKAGES,
+        "fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto,"
+            + "fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event,"
+            + "fr.miage.collectivit.salesservice.dto.event,"
+            + "fr.miage.collectivit.salesservice.event,"
+            + "java.util,java.lang");
     props.put(
         JsonDeserializer.TYPE_MAPPINGS,
         "fr.miage.collectivit.salesservice.dto.event.PhysicalPaymentCompletedEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,"
             + "fr.miage.collectivit.salesservice.dto.event.OrderPaidKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,"
-            + "fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent");
+            + "fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent,"
+            + "physicalPayment:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,"
+            + "orderPaid:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,"
+            + "transactionApproved:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent");
     return new DefaultKafkaConsumerFactory<>(props);
   }
 
@@ -89,6 +98,8 @@ public class KafkaConsumerConfig {
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory);
     factory.setAutoStartup(autoStartup);
+    factory.setConcurrency(KafkaTopicConfig.DEFAULT_PARTITIONS);
+    factory.getContainerProperties().setObservationEnabled(true);
 
     DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
     DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, retryBackOff());

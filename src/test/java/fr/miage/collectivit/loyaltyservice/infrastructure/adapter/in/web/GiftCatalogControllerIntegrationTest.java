@@ -122,6 +122,29 @@ class GiftCatalogControllerIntegrationTest {
   }
 
   @Test
+  @DisplayName("GET /v1/loyalty/stores/{storeUid}/gifts/page -> paginated retrieval of store gifts")
+  void shouldRetrieveStoreGiftsPagePublicly() throws Exception {
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    giftRepository.save(buildGiftEntity(storeUid, "Mug ShopLoc", "Superbe mug", 50, 10, null));
+    giftRepository.save(
+        buildGiftEntity(storeUid, "T-shirt ShopLoc", "T-shirt coton", 100, 5, null));
+
+    mockMvc
+        .perform(
+            get("/v1/loyalty/stores/" + storeUid + "/gifts/page")
+                .param("page", "0")
+                .param("size", "1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1))
+        .andExpect(jsonPath("$.totalElements").value(2))
+        .andExpect(jsonPath("$.totalPages").value(2))
+        .andExpect(jsonPath("$.first").value(true))
+        .andExpect(jsonPath("$.last").value(false))
+        .andExpect(jsonPath("$.content.length()").value(1));
+  }
+
+  @Test
   @DisplayName("GET /v1/loyalty/stores/{storeUid}/gifts/{giftUid} -> retrieve single gift")
   void shouldRetrieveSingleGift() throws Exception {
     UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");

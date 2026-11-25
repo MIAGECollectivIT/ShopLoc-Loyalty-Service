@@ -12,11 +12,15 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaAdmin;
 
 @Configuration
+@SuppressWarnings("PMD.TooManyMethods")
 public class KafkaTopicConfig {
 
   public static final String PHYSICAL_PAYMENTS_TOPIC = "shoploc.physical-payments";
   public static final String PHYSICAL_PAYMENTS_DLT_TOPIC = "shoploc.physical-payments.DLT";
   public static final String ORDER_PAYMENTS_TOPIC = "shoploc.order-payments";
+  public static final String ORDER_PAYMENTS_DLT_TOPIC = "shoploc.order-payments.DLT";
+  public static final String TRANSACTION_APPROVED_TOPIC = "shoploc.transactions.approved";
+  public static final String TRANSACTION_APPROVED_DLT_TOPIC = "shoploc.transactions.approved.DLT";
   public static final int DEFAULT_PARTITIONS = 4;
   public static final short DEFAULT_REPLICATION_FACTOR = 1;
 
@@ -56,6 +60,30 @@ public class KafkaTopicConfig {
   @Bean
   public NewTopic orderPaymentsTopic() {
     return TopicBuilder.name(ORDER_PAYMENTS_TOPIC)
+        .partitions(DEFAULT_PARTITIONS)
+        .replicas(DEFAULT_REPLICATION_FACTOR)
+        .build();
+  }
+
+  @Bean
+  public NewTopic orderPaymentsDltTopic() {
+    return TopicBuilder.name(ORDER_PAYMENTS_DLT_TOPIC)
+        .partitions(DEFAULT_PARTITIONS)
+        .replicas(DEFAULT_REPLICATION_FACTOR)
+        .build();
+  }
+
+  @Bean
+  public NewTopic transactionApprovedTopic() {
+    return TopicBuilder.name(TRANSACTION_APPROVED_TOPIC)
+        .partitions(DEFAULT_PARTITIONS)
+        .replicas(DEFAULT_REPLICATION_FACTOR)
+        .build();
+  }
+
+  @Bean
+  public NewTopic transactionApprovedDltTopic() {
+    return TopicBuilder.name(TRANSACTION_APPROVED_DLT_TOPIC)
         .partitions(DEFAULT_PARTITIONS)
         .replicas(DEFAULT_REPLICATION_FACTOR)
         .build();
