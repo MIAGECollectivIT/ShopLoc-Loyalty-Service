@@ -22,6 +22,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_batch_fetch_size: 50
         temp:
           use_jdbc_metadata_defaults: false
     open-in-view: false
@@ -42,7 +43,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
-        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
         spring.json.trusted.packages: "fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto,fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event,fr.miage.collectivit.salesservice.dto.event,fr.miage.collectivit.salesservice.event,java.util,java.lang"
         spring.json.type.mapping: "fr.miage.collectivit.salesservice.dto.event.PhysicalPaymentCompletedEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,fr.miage.collectivit.salesservice.dto.event.OrderPaidKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent,physicalPayment:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,orderPaid:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,transactionApproved:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent"
 
@@ -50,7 +51,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       probes:

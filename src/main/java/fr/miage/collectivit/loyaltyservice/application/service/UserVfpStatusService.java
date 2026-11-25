@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Core domain application service that evaluates transaction activity and orchestrates real-time
@@ -28,6 +29,9 @@ public class UserVfpStatusService
   private final EvaluateUserActivityUseCase evaluateUserActivityUseCase;
   private final UserVfpPersistencePort userVfpPersistencePort;
   private final Clock clock;
+
+  @Autowired(required = false)
+  private TransactionTemplate transactionTemplate;
 
   @Autowired
   public UserVfpStatusService(
@@ -46,7 +50,6 @@ public class UserVfpStatusService
   }
 
   @Override
-  @Transactional
   public UserVfpStatus evaluateAndApply(String userId) {
     if (userId == null || userId.isBlank()) {
       throw new IllegalArgumentException("User ID must not be blank");
@@ -54,10 +57,19 @@ public class UserVfpStatusService
     String cleanUserId = userId.trim();
     Instant now = clock.instant();
 
+    // Perform outbound HTTP activity evaluation before opening a DB transaction
     UserActivityEvaluation evaluation = evaluateUserActivityUseCase.evaluateActivity(cleanUserId);
     int transactionCount = evaluation.getTransactionCount();
     boolean eligible = evaluation.isEligibleVfp();
 
+    return transactionTemplate != null
+        ? transactionTemplate.execute(
+            status -> applyStatusUpdate(cleanUserId, eligible, transactionCount, now))
+        : applyStatusUpdate(cleanUserId, eligible, transactionCount, now);
+  }
+
+  private UserVfpStatus applyStatusUpdate(
+      String cleanUserId, boolean eligible, int transactionCount, Instant now) {
     UserVfpStatus currentStatus =
         userVfpPersistencePort
             .findByUserId(cleanUserId)

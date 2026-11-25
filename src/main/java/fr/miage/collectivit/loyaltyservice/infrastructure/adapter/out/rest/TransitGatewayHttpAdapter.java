@@ -5,6 +5,7 @@ import fr.miage.collectivit.loyaltyservice.domain.model.TransitGatewayTicket;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.TransitGatewayPort;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.rest.dto.TransitGatewayRequest;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.rest.dto.TransitGatewayResponse;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.Setter;
@@ -12,7 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -48,9 +50,14 @@ public class TransitGatewayHttpAdapter implements TransitGatewayPort {
     this.restClient = restClient;
   }
 
-  private static SimpleClientHttpRequestFactory createRequestFactory() {
-    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS));
+  @SuppressWarnings("PMD.CloseResource")
+  private static ClientHttpRequestFactory createRequestFactory() {
+    HttpClient httpClient =
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+            .build();
+    JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
     factory.setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS));
     return factory;
   }

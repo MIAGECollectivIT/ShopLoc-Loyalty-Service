@@ -9,9 +9,10 @@ WORKDIR /build
 COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:resolve-plugins dependency:resolve
 
-# Compilation et empaquetage du livrable jar
-COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B -o clean package -DskipTests
+# Compilation des sources principales et extraction des couches Spring Boot (Layered JAR)
+COPY src/main ./src/main
+RUN --mount=type=cache,target=/root/.m2 mvn -B -o package -Dmaven.test.skip=true \
+    && java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination extracted
 
 # ==========================================
 # Étape 2 : Image d'exécution minimale ARM64 / Multi-Arch
@@ -22,15 +23,21 @@ WORKDIR /app
 # Sécurité : Exécution sous un utilisateur non-root dédié
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copie du jar exécutable depuis le builder
-COPY --from=builder --chown=appuser:appgroup /build/target/*.jar app.jar
+# Copie ordonnée des couches Spring Boot (de la moins fréquente à la plus fréquente)
+COPY --from=builder --chown=appuser:appgroup /build/extracted/dependencies/ ./
+COPY --from=builder --chown=appuser:appgroup /build/extracted/spring-boot-loader/ ./
+COPY --from=builder --chown=appuser:appgroup /build/extracted/snapshot-dependencies/ ./
+COPY --from=builder --chown=appuser:appgroup /build/extracted/application/ ./
 
 USER appuser
 
 # Port d'écoute standard
 EXPOSE 8080
 
-# Options JVM optimisées pour conteneurs (K3s / cgroups)
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+# Options JVM optimisées pour conteneurs (K3s / cgroups), PID 1 direct sur java
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+HEALTHCHECK --interval=15s --timeout=3s --start-period=25s --retries=3 \
+  CMD wget -q --spider http://localhost:8080/actuator/health/liveness || exit 1
+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
