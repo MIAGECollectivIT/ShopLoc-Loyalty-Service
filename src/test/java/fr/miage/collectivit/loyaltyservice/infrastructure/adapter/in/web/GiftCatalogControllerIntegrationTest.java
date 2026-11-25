@@ -461,4 +461,57 @@ class GiftCatalogControllerIntegrationTest {
         .perform(get("/v1/loyalty/stores/" + storeUid + "/gifts/" + gift.getUid() + "/image"))
         .andExpect(status().isNotFound());
   }
+
+  @Test
+  @DisplayName(
+      "POST & PUT /v1/loyalty/stores/{storeUid}/gifts -> persist and toggle vfpExclusive flag (SLE-49)")
+  void shouldCreateAndUpdateVfpExclusiveGift() throws Exception {
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+    UUID merchantUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440042");
+    when(storeVerificationPort.findStoreOwnerUid(storeUid)).thenReturn(Optional.of(merchantUid));
+
+    String token = generateToken("MERCHANT", merchantUid);
+    GiftCreateRequest createRequest =
+        new GiftCreateRequest(
+            "Coffret VFP",
+            "Réservé aux clients VFP",
+            200,
+            5,
+            "https://cdn.shoploc.fr/vfp-box.png",
+            true);
+
+    String createdBody =
+        mockMvc
+            .perform(
+                post("/v1/loyalty/stores/" + storeUid + "/gifts")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(createRequest)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.name").value("Coffret VFP"))
+            .andExpect(jsonPath("$.vfpExclusive").value(true))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    String giftUid = objectMapper.readTree(createdBody).get("uid").asText();
+
+    GiftUpdateRequest updateRequest =
+        new GiftUpdateRequest(
+            "Coffret Standard",
+            "Ouvert à tous",
+            150,
+            "https://cdn.shoploc.fr/std-box.png",
+            false);
+
+    mockMvc
+        .perform(
+            put("/v1/loyalty/stores/" + storeUid + "/gifts/" + giftUid)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateRequest)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Coffret Standard"))
+        .andExpect(jsonPath("$.vfpExclusive").value(false));
+  }
 }
