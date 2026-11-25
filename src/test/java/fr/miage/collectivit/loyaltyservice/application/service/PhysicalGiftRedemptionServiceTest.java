@@ -14,16 +14,19 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.GiftNotFoundExceptio
 import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientLoyaltyPointsException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidGiftException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UserNotVfpException;
 import fr.miage.collectivit.loyaltyservice.domain.model.LoyaltyGift;
 import fr.miage.collectivit.loyaltyservice.domain.model.PhysicalGiftRedemptionResult;
 import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransaction;
 import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransactionType;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserPointsAccount;
+import fr.miage.collectivit.loyaltyservice.domain.model.UserVfpStatus;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.RedeemPhysicalGiftsCommand;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.RedeemPhysicalGiftsCommand.GiftSelectionItem;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.LoyaltyGiftPersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserPointsPersistencePort;
+import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVfpPersistencePort;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -50,6 +53,7 @@ class PhysicalGiftRedemptionServiceTest {
   @Mock private LoyaltyGiftPersistencePort loyaltyGiftPersistencePort;
   @Mock private UserPointsPersistencePort userPointsPersistencePort;
   @Mock private StoreVerificationPort storeVerificationPort;
+  @Mock private UserVfpPersistencePort userVfpPersistencePort;
 
   private PhysicalGiftRedemptionService service;
 
@@ -60,6 +64,7 @@ class PhysicalGiftRedemptionServiceTest {
             loyaltyGiftPersistencePort,
             userPointsPersistencePort,
             storeVerificationPort,
+            userVfpPersistencePort,
             null,
             Clock.fixed(FIXED_NOW, ZoneOffset.UTC));
     lenient()
@@ -273,5 +278,64 @@ class PhysicalGiftRedemptionServiceTest {
         .hasMessageContaining("GIFT-PHYS-REQ-123");
 
     verify(userPointsPersistencePort, never()).saveAccount(any());
+  }
+
+  @Test
+  @DisplayName("Should reject VFP-exclusive gift redemption for non-VFP customer (SLE-49)")
+  void shouldRejectVfpExclusiveGiftForNonVfpCustomer() {
+    UUID giftUid = UUID.randomUUID();
+    LoyaltyGift vfpGift =
+        new LoyaltyGift(
+            1L, giftUid, STORE_UID, "Coffret VFP", null, 50, 5, null, true, true, FIXED_NOW, FIXED_NOW);
+    when(loyaltyGiftPersistencePort.findByUidAndStoreUid(giftUid, STORE_UID))
+        .thenReturn(Optional.of(vfpGift));
+
+    UserPointsAccount existing =
+        new UserPointsAccount(
+            10L, "cust-uuid-1", "CL95001", new BigDecimal("100.0"), FIXED_NOW, FIXED_NOW);
+    when(userPointsPersistencePort.findAccountByUserIdForUpdate("cust-uuid-1"))
+        .thenReturn(Optional.of(existing));
+    when(userVfpPersistencePort.findByUserId("cust-uuid-1")).thenReturn(Optional.empty());
+
+    RedeemPhysicalGiftsCommand command =
+        new RedeemPhysicalGiftsCommand(
+            "cust-uuid-1", "CL95001", List.of(new GiftSelectionItem(giftUid, 1)), null);
+
+    assertThatThrownBy(() -> service.redeemPhysicalGifts(STORE_UID, command, OWNER_UID, "MERCHANT"))
+        .isInstanceOf(UserNotVfpException.class)
+        .hasMessageContaining("VFP");
+
+    verify(userPointsPersistencePort, never()).saveAccount(any());
+  }
+
+  @Test
+  @DisplayName("Should allow VFP-exclusive gift redemption for active VFP customer (SLE-49)")
+  void shouldAllowVfpExclusiveGiftForActiveVfpCustomer() {
+    UUID giftUid = UUID.randomUUID();
+    LoyaltyGift vfpGift =
+        new LoyaltyGift(
+            1L, giftUid, STORE_UID, "Coffret VFP", null, 50, 5, null, true, true, FIXED_NOW, FIXED_NOW);
+    when(loyaltyGiftPersistencePort.findByUidAndStoreUid(giftUid, STORE_UID))
+        .thenReturn(Optional.of(vfpGift));
+
+    UserPointsAccount existing =
+        new UserPointsAccount(
+            10L, "cust-uuid-1", "CL95001", new BigDecimal("100.0"), FIXED_NOW, FIXED_NOW);
+    when(userPointsPersistencePort.findAccountByUserIdForUpdate("cust-uuid-1"))
+        .thenReturn(Optional.of(existing));
+    when(userVfpPersistencePort.findByUserId("cust-uuid-1"))
+        .thenReturn(Optional.of(UserVfpStatus.initial("cust-uuid-1", FIXED_NOW).grant(FIXED_NOW)));
+    when(userPointsPersistencePort.saveAccount(any()))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    RedeemPhysicalGiftsCommand command =
+        new RedeemPhysicalGiftsCommand(
+            "cust-uuid-1", "CL95001", List.of(new GiftSelectionItem(giftUid, 1)), null);
+
+    PhysicalGiftRedemptionResult result =
+        service.redeemPhysicalGifts(STORE_UID, command, OWNER_UID, "MERCHANT");
+
+    assertThat(result.pointsDeducted()).isEqualByComparingTo("50.0");
+    assertThat(result.remainingBalance()).isEqualByComparingTo("50.0");
   }
 }

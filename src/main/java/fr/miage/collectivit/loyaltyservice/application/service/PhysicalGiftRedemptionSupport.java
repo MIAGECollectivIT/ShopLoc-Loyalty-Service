@@ -66,19 +66,36 @@ final class PhysicalGiftRedemptionSupport {
     }
   }
 
-  static List<RedeemedGiftItem> resolveRedeemedItems(
+  record ResolvedRedemption(List<RedeemedGiftItem> items, boolean hasVfpExclusive) {}
+
+  static ResolvedRedemption resolveRedeemedItems(
       UUID storeUid,
       Map<UUID, Integer> aggregatedQuantities,
       LoyaltyGiftPersistencePort giftPersistencePort) {
-    return aggregatedQuantities.entrySet().stream()
-        .map(
-            entry ->
-                toRedeemedItem(storeUid, entry.getKey(), entry.getValue(), giftPersistencePort))
-        .toList();
+    boolean[] hasVfpExclusive = {false};
+    List<RedeemedGiftItem> items =
+        aggregatedQuantities.entrySet().stream()
+            .map(
+                entry -> {
+                  LoyaltyGift gift =
+                      loadActiveGift(storeUid, entry.getKey(), giftPersistencePort);
+                  if (gift.isVfpExclusive()) {
+                    hasVfpExclusive[0] = true;
+                  }
+                  int linePoints = Math.multiplyExact(gift.getPointsCost(), entry.getValue());
+                  return new RedeemedGiftItem(
+                      gift.getUid(),
+                      gift.getName(),
+                      gift.getPointsCost(),
+                      entry.getValue(),
+                      linePoints);
+                })
+            .toList();
+    return new ResolvedRedemption(items, hasVfpExclusive[0]);
   }
 
-  private static RedeemedGiftItem toRedeemedItem(
-      UUID storeUid, UUID giftUid, int quantity, LoyaltyGiftPersistencePort giftPersistencePort) {
+  private static LoyaltyGift loadActiveGift(
+      UUID storeUid, UUID giftUid, LoyaltyGiftPersistencePort giftPersistencePort) {
     LoyaltyGift gift =
         giftPersistencePort
             .findByUidAndStoreUid(giftUid, storeUid)
@@ -88,10 +105,7 @@ final class PhysicalGiftRedemptionSupport {
       throw new InvalidGiftException(
           "Le cadeau '" + gift.getName() + "' n'est plus actif dans ce commerce.");
     }
-
-    int linePoints = Math.multiplyExact(gift.getPointsCost(), quantity);
-    return new RedeemedGiftItem(
-        gift.getUid(), gift.getName(), gift.getPointsCost(), quantity, linePoints);
+    return gift;
   }
 
   static String resolveConsistentClientCode(UserPointsAccount account, String requestedClientCode) {

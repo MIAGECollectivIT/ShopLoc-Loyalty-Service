@@ -4,16 +4,19 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.DuplicatePhysicalRed
 import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientLoyaltyPointsException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.UserNotVfpException;
 import fr.miage.collectivit.loyaltyservice.domain.model.PhysicalGiftRedemptionResult;
 import fr.miage.collectivit.loyaltyservice.domain.model.PhysicalGiftRedemptionResult.RedeemedGiftItem;
 import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransaction;
 import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransactionType;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserPointsAccount;
+import fr.miage.collectivit.loyaltyservice.domain.model.UserVfpStatus;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.RedeemPhysicalGiftsCommand;
 import fr.miage.collectivit.loyaltyservice.domain.port.in.RedeemPhysicalGiftsUseCase;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.LoyaltyGiftPersistencePort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.StoreVerificationPort;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserPointsPersistencePort;
+import fr.miage.collectivit.loyaltyservice.domain.port.out.UserVfpPersistencePort;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -44,6 +47,7 @@ public class PhysicalGiftRedemptionService implements RedeemPhysicalGiftsUseCase
   private final LoyaltyGiftPersistencePort loyaltyGiftPersistencePort;
   private final UserPointsPersistencePort userPointsPersistencePort;
   private final StoreVerificationPort storeVerificationPort;
+  private final UserVfpPersistencePort userVfpPersistencePort;
   private final TransactionTemplate transactionTemplate;
   private final Clock clock;
 
@@ -52,11 +56,13 @@ public class PhysicalGiftRedemptionService implements RedeemPhysicalGiftsUseCase
       LoyaltyGiftPersistencePort loyaltyGiftPersistencePort,
       UserPointsPersistencePort userPointsPersistencePort,
       StoreVerificationPort storeVerificationPort,
+      UserVfpPersistencePort userVfpPersistencePort,
       TransactionTemplate transactionTemplate) {
     this(
         loyaltyGiftPersistencePort,
         userPointsPersistencePort,
         storeVerificationPort,
+        userVfpPersistencePort,
         transactionTemplate,
         Clock.systemUTC());
   }
@@ -67,9 +73,26 @@ public class PhysicalGiftRedemptionService implements RedeemPhysicalGiftsUseCase
       StoreVerificationPort storeVerificationPort,
       TransactionTemplate transactionTemplate,
       Clock clock) {
+    this(
+        loyaltyGiftPersistencePort,
+        userPointsPersistencePort,
+        storeVerificationPort,
+        null,
+        transactionTemplate,
+        clock);
+  }
+
+  public PhysicalGiftRedemptionService(
+      LoyaltyGiftPersistencePort loyaltyGiftPersistencePort,
+      UserPointsPersistencePort userPointsPersistencePort,
+      StoreVerificationPort storeVerificationPort,
+      UserVfpPersistencePort userVfpPersistencePort,
+      TransactionTemplate transactionTemplate,
+      Clock clock) {
     this.loyaltyGiftPersistencePort = loyaltyGiftPersistencePort;
     this.userPointsPersistencePort = userPointsPersistencePort;
     this.storeVerificationPort = storeVerificationPort;
+    this.userVfpPersistencePort = userVfpPersistencePort;
     this.transactionTemplate = transactionTemplate;
     this.clock = clock;
   }
@@ -111,9 +134,10 @@ public class PhysicalGiftRedemptionService implements RedeemPhysicalGiftsUseCase
       Map<UUID, Integer> aggregatedQuantities,
       boolean checkIdempotency,
       String txRef) {
-    List<RedeemedGiftItem> redeemedItems =
+    PhysicalGiftRedemptionSupport.ResolvedRedemption resolved =
         PhysicalGiftRedemptionSupport.resolveRedeemedItems(
             storeUid, aggregatedQuantities, loyaltyGiftPersistencePort);
+    List<RedeemedGiftItem> redeemedItems = resolved.items();
 
     long totalPointsLong =
         redeemedItems.stream()
@@ -123,6 +147,18 @@ public class PhysicalGiftRedemptionService implements RedeemPhysicalGiftsUseCase
 
     // Acquire row lock first so concurrent retries with the same idempotencyKey serialize safely.
     UserPointsAccount account = requireSufficientBalance(customerId, clientCode, totalCost);
+    if (resolved.hasVfpExclusive()) {
+      boolean isActiveVfp =
+          userVfpPersistencePort != null
+              && userVfpPersistencePort
+                  .findByUserId(account.userId())
+                  .map(UserVfpStatus::isVfp)
+                  .orElse(false);
+      if (!isActiveVfp) {
+        throw new UserNotVfpException(
+            "La remise d'un cadeau exclusif VFP nécessite un statut VFP actif pour ce client.");
+      }
+    }
     String resolvedClientCode =
         PhysicalGiftRedemptionSupport.resolveConsistentClientCode(account, clientCode);
 
