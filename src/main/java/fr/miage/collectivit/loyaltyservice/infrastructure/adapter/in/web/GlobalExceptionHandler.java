@@ -1,7 +1,9 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
+import fr.miage.collectivit.loyaltyservice.domain.exception.DuplicatePhysicalRedemptionException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.GiftNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientGiftStockException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.InsufficientLoyaltyPointsException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidGiftException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLicensePlateException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLoyaltyRateException;
@@ -40,6 +42,7 @@ public class GlobalExceptionHandler {
     InvalidLoyaltyRateException.class,
     InvalidGiftException.class,
     InsufficientGiftStockException.class,
+    InsufficientLoyaltyPointsException.class,
     InvalidLicensePlateException.class,
     VehicleNotRegisteredException.class,
     IllegalArgumentException.class,
@@ -88,7 +91,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({
     ParkingSessionAlreadyUsedException.class,
-    TransitTicketAlreadyUsedException.class
+    TransitTicketAlreadyUsedException.class,
+    DuplicatePhysicalRedemptionException.class
   })
   public ResponseEntity<Map<String, Object>> handleBenefitConflict(RuntimeException ex) {
     return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
