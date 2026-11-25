@@ -84,6 +84,24 @@ class LoyaltyGiftMapperTest {
   }
 
   @Test
+  @DisplayName("Should map vfpExclusive flag bidirectionally (SLE-49)")
+  void shouldMapVfpExclusiveFlag() {
+    Instant now = Instant.parse("2026-11-25T10:00:00Z");
+    UUID uid = UUID.fromString("550e8400-e29b-41d4-a716-446655440009");
+    UUID storeUid = UUID.fromString("550e8400-e29b-41d4-a716-446655440010");
+
+    LoyaltyGift domain =
+        new LoyaltyGift(
+            2L, uid, storeUid, "Panier VIP", "Exclusif VFP", 120, 4, null, true, true, now, now);
+
+    LoyaltyGiftJpaEntity entity = mapper.toEntity(domain);
+    assertThat(entity.isVfpExclusive()).isTrue();
+
+    LoyaltyGift mappedBack = mapper.toDomain(entity);
+    assertThat(mappedBack.isVfpExclusive()).isTrue();
+  }
+
+  @Test
   @DisplayName("Should handle null mappings gracefully")
   void shouldHandleNull() {
     assertThat(mapper.toDomain(null)).isNull();

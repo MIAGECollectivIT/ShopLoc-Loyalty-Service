@@ -411,4 +411,26 @@ class GiftCatalogServiceTest {
     assertThat(items.get(0).name()).isEqualTo("Croissant");
     assertThat(items.get(0).storeUid()).isEqualTo(STORE_UID);
   }
+
+  @Test
+  @DisplayName("Should create and update VFP-exclusive gift via commands (SLE-49)")
+  void shouldCreateAndUpdateVfpExclusiveGift() {
+    when(storeVerificationPort.findStoreOwnerUid(STORE_UID))
+        .thenReturn(Optional.of(MERCHANT_USER_ID));
+    when(persistencePort.save(any(LoyaltyGift.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    GiftCreateCommand createCmd =
+        new GiftCreateCommand("Box VFP", "Cadeau réservé aux membres VFP", 250, 5, null, true);
+    LoyaltyGift created = service.createGift(STORE_UID, createCmd, MERCHANT_USER_ID, "MERCHANT");
+    assertThat(created.isVfpExclusive()).isTrue();
+
+    when(persistencePort.findByUidAndStoreUidForUpdate(GIFT_UID, STORE_UID))
+        .thenReturn(Optional.of(created));
+    GiftUpdateCommand updateCmd =
+        new GiftUpdateCommand("Box Ouverte", "Désormais pour tous", 200, null, false);
+    LoyaltyGift updated =
+        service.updateGift(STORE_UID, GIFT_UID, updateCmd, MERCHANT_USER_ID, "MERCHANT");
+    assertThat(updated.isVfpExclusive()).isFalse();
+  }
 }

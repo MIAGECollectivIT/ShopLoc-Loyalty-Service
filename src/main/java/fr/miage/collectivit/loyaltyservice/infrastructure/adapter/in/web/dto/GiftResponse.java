@@ -17,8 +17,38 @@ public record GiftResponse(
     Integer stock,
     String imageUrl,
     boolean active,
+    boolean vfpExclusive,
     Instant createdAt,
     Instant updatedAt) {
+
+  public GiftResponse(
+      UUID uid,
+      UUID storeUid,
+      String storeName,
+      String category,
+      String name,
+      String description,
+      Integer pointsCost,
+      Integer stock,
+      String imageUrl,
+      boolean active,
+      Instant createdAt,
+      Instant updatedAt) {
+    this(
+        uid,
+        storeUid,
+        storeName,
+        category,
+        name,
+        description,
+        pointsCost,
+        stock,
+        imageUrl,
+        active,
+        false,
+        createdAt,
+        updatedAt);
+  }
 
   public GiftResponse(
       UUID uid,
@@ -42,6 +72,7 @@ public record GiftResponse(
         stock,
         imageUrl,
         active,
+        false,
         createdAt,
         updatedAt);
   }
@@ -65,6 +96,7 @@ public record GiftResponse(
         domain.getStock(),
         domain.getImageUrl(),
         domain.isActive(),
+        domain.isVfpExclusive(),
         domain.getCreatedAt(),
         domain.getUpdatedAt());
   }
@@ -84,6 +116,7 @@ public record GiftResponse(
         item.stock(),
         item.imageUrl(),
         item.active(),
+        item.vfpExclusive(),
         item.createdAt(),
         item.updatedAt());
   }

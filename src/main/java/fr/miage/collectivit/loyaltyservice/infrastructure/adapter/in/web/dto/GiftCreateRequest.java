@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-/** Request DTO for creating a new loyalty gift item (SLE-60). */
+/** Request DTO for creating a new loyalty gift item (SLE-60 / SLE-49). */
 public record GiftCreateRequest(
     @NotBlank(message = "Gift name is mandatory")
         @Size(max = 120, message = "Gift name must not exceed 120 characters")
@@ -18,10 +18,21 @@ public record GiftCreateRequest(
         @Positive(message = "Points cost must be strictly positive")
         Integer pointsCost,
     @PositiveOrZero(message = "Stock cannot be negative") Integer stock,
-    @Size(max = 500, message = "Image URL must not exceed 500 characters") String imageUrl) {
+    @Size(max = 500, message = "Image URL must not exceed 500 characters") String imageUrl,
+    Boolean vfpExclusive) {
+
+  public GiftCreateRequest(
+      String name, String description, Integer pointsCost, Integer stock, String imageUrl) {
+    this(name, description, pointsCost, stock, imageUrl, false);
+  }
 
   public GiftCreateCommand toCommand() {
     return new GiftCreateCommand(
-        name, description, pointsCost, stock != null ? stock : 0, imageUrl);
+        name,
+        description,
+        pointsCost,
+        stock != null ? stock : 0,
+        imageUrl,
+        Boolean.TRUE.equals(vfpExclusive));
   }
 }

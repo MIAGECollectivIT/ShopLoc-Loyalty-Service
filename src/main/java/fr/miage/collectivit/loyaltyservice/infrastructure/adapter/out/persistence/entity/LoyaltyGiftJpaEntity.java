@@ -57,6 +57,9 @@ public class LoyaltyGiftJpaEntity {
   @Column(name = "is_active", nullable = false)
   private boolean active;
 
+  @Column(name = "vfp_exclusive", nullable = false)
+  private boolean vfpExclusive;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 

@@ -166,4 +166,21 @@ class LoyaltyGiftTest {
     gift.activate();
     assertThat(gift.isActive()).isTrue();
   }
+
+  @Test
+  @DisplayName("Should default vfpExclusive to false and support explicit VFP-exclusive flag and update (SLE-49)")
+  void shouldManageVfpExclusiveFlag() {
+    LoyaltyGift standardGift = new LoyaltyGift(STORE_UID, "Tote bag", "Description", 50, 10, null);
+    assertThat(standardGift.isVfpExclusive()).isFalse();
+
+    LoyaltyGift vfpGift =
+        new LoyaltyGift(STORE_UID, "Coffret VIP", "Réservé VFP", 200, 5, null, true);
+    assertThat(vfpGift.isVfpExclusive()).isTrue();
+
+    vfpGift.update("Coffret Standard", "Ouvert à tous", 150, null, false);
+    assertThat(vfpGift.isVfpExclusive()).isFalse();
+
+    standardGift.update("Tote bag VIP", "Maintenant VFP", 80, null, true);
+    assertThat(standardGift.isVfpExclusive()).isTrue();
+  }
 }

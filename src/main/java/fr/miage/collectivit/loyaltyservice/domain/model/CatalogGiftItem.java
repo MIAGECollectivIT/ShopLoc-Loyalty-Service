@@ -18,6 +18,7 @@ public record CatalogGiftItem(
     Integer stock,
     String imageUrl,
     boolean active,
+    boolean vfpExclusive,
     Instant createdAt,
     Instant updatedAt) {
 
@@ -36,6 +37,7 @@ public record CatalogGiftItem(
         gift.getStock(),
         gift.getImageUrl(),
         gift.isActive(),
+        gift.isVfpExclusive(),
         gift.getCreatedAt(),
         gift.getUpdatedAt());
   }
