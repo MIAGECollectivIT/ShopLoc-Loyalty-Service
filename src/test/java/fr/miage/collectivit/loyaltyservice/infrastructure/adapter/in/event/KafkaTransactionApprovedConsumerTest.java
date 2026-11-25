@@ -1,6 +1,6 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -45,12 +45,14 @@ class KafkaTransactionApprovedConsumerTest {
   }
 
   @Test
-  @DisplayName("Should catch use case exception without throwing")
-  void shouldHandleUseCaseExceptionGracefully() {
+  @DisplayName("Should rethrow use case exception for Kafka DefaultErrorHandler retry and DLT")
+  void shouldRethrowUseCaseExceptionForKafkaRetry() {
     TransactionApprovedEvent event =
         new TransactionApprovedEvent("user-err", "txn-102", "REF-203", 20.0, "EUR", Instant.now());
     doThrow(new RuntimeException("Database error")).when(useCase).evaluateAndApply("user-err");
 
-    assertThatCode(() -> consumer.onTransactionApproved(event)).doesNotThrowAnyException();
+    assertThatThrownBy(() -> consumer.onTransactionApproved(event))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("Database error");
   }
 }

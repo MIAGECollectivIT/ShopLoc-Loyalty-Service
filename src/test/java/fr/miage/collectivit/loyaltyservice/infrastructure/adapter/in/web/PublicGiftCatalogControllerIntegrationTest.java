@@ -196,4 +196,41 @@ class PublicGiftCatalogControllerIntegrationTest {
         .andExpect(jsonPath("$[0].name").value("Dégustation Privée VFP"))
         .andExpect(jsonPath("$[0].vfpExclusive").value(true));
   }
+
+  @Test
+  @DisplayName("GET /v1/loyalty/gifts/page -> should retrieve paginated active gifts publicly")
+  void shouldRetrievePaginatedActiveGiftsPublicly() throws Exception {
+    LoyaltyGiftJpaEntity activeGift1 =
+        buildGift(
+            STORE_UID_10,
+            "Croissant Offert",
+            "Un bon croissant",
+            50,
+            25,
+            "https://cdn.shoploc.fr/croissant.png",
+            true);
+    LoyaltyGiftJpaEntity activeGift2 =
+        buildGift(
+            STORE_UID_20,
+            "Livre de poche",
+            "Roman au choix",
+            120,
+            10,
+            "https://cdn.shoploc.fr/livre.png",
+            true);
+
+    giftRepository.save(activeGift1);
+    giftRepository.save(activeGift2);
+
+    mockMvc
+        .perform(get("/v1/loyalty/gifts/page").param("page", "0").param("size", "1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(1))
+        .andExpect(jsonPath("$.totalElements").value(2))
+        .andExpect(jsonPath("$.totalPages").value(2))
+        .andExpect(jsonPath("$.first").value(true))
+        .andExpect(jsonPath("$.last").value(false))
+        .andExpect(jsonPath("$.content.length()").value(1));
+  }
 }

@@ -71,7 +71,10 @@ public class SalesServiceHttpAdapter implements SalesTransactionPort {
   @SuppressWarnings("PMD.CloseResource")
   private static ClientHttpRequestFactory createClientHttpRequestFactory() {
     HttpClient httpClient =
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS)).build();
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+            .build();
     JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
     factory.setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS));
     return factory;

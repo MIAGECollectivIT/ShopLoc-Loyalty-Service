@@ -45,6 +45,7 @@ public class KafkaTransactionApprovedConsumer {
             ex.getMessage(),
             ex);
       }
+      throw ex;
     }
   }
 }

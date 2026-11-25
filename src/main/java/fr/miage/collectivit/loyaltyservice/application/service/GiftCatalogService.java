@@ -212,29 +212,32 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
   }
 
   @Override
-  @Transactional(readOnly = true)
   public List<CatalogGiftItem> getPublicCatalog(UUID storeUid, String category) {
     List<LoyaltyGift> activeGifts =
         storeUid != null
             ? persistencePort.findActiveByStoreUid(storeUid)
             : persistencePort.findAllActive();
 
-    java.util.Map<UUID, String> storeNames = new java.util.HashMap<>();
-    java.util.Map<UUID, String> storeCategories = new java.util.HashMap<>();
+    java.util.Map<UUID, StoreVerificationPort.StoreInfo> storeInfos = new java.util.HashMap<>();
 
     return activeGifts.stream()
         .map(
             gift -> {
               UUID currentStoreUid = gift.getStoreUid();
-              String sName =
-                  storeNames.computeIfAbsent(
+              StoreVerificationPort.StoreInfo info =
+                  storeInfos.computeIfAbsent(
                       currentStoreUid,
-                      uid -> storeVerificationPort.findStoreName(uid).orElse(null));
-              String sCat =
-                  storeCategories.computeIfAbsent(
-                      currentStoreUid,
-                      uid -> storeVerificationPort.findStoreCategory(uid).orElse(null));
-              return CatalogGiftItem.of(gift, sName, sCat);
+                      uid ->
+                          storeVerificationPort
+                              .findStoreInfo(uid)
+                              .orElseGet(
+                                  () ->
+                                      new StoreVerificationPort.StoreInfo(
+                                          storeVerificationPort.findStoreName(uid).orElse(null),
+                                          storeVerificationPort
+                                              .findStoreCategory(uid)
+                                              .orElse(null))));
+              return CatalogGiftItem.of(gift, info.name(), info.category());
             })
         .filter(
             item -> {

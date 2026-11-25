@@ -22,8 +22,8 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 @EnableKafka
 @Configuration
@@ -43,7 +43,6 @@ public class KafkaConsumerConfig {
 
   @Bean
   @ConditionalOnMissingBean
-  @SuppressWarnings("deprecation")
   public ConsumerFactory<String, Object> consumerFactory() {
     Map<String, Object> props = new HashMap<>();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -52,24 +51,34 @@ public class KafkaConsumerConfig {
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
     props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class.getName());
-    props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-    props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
     props.put(
-        JsonDeserializer.TYPE_MAPPINGS,
+        ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS,
+        JacksonJsonDeserializer.class.getName());
+    props.put(
+        JacksonJsonDeserializer.TRUSTED_PACKAGES,
+        "fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto,"
+            + "fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event,"
+            + "fr.miage.collectivit.salesservice.dto.event,"
+            + "fr.miage.collectivit.salesservice.event,"
+            + "java.util,java.lang");
+    props.put(
+        JacksonJsonDeserializer.TYPE_MAPPINGS,
         "fr.miage.collectivit.salesservice.dto.event.PhysicalPaymentCompletedEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,"
             + "fr.miage.collectivit.salesservice.dto.event.OrderPaidKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,"
-            + "fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent");
+            + "fr.miage.collectivit.salesservice.event.TransactionApprovedKafkaEvent:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent,"
+            + "physicalPayment:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.PhysicalPaymentCompletedEvent,"
+            + "orderPaid:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.kafka.dto.OrderPaidKafkaEvent,"
+            + "transactionApproved:fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.event.TransactionApprovedEvent");
     return new DefaultKafkaConsumerFactory<>(props);
   }
 
   @Bean
   @ConditionalOnMissingBean
-  @SuppressWarnings("deprecation")
   public ProducerFactory<String, Object> kafkaProducerFactory() {
     Map<String, Object> props = new HashMap<>();
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
     return new DefaultKafkaProducerFactory<>(props);
   }
 
@@ -89,6 +98,8 @@ public class KafkaConsumerConfig {
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory);
     factory.setAutoStartup(autoStartup);
+    factory.setConcurrency(KafkaTopicConfig.DEFAULT_PARTITIONS);
+    factory.getContainerProperties().setObservationEnabled(true);
 
     DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
     DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, retryBackOff());

@@ -143,7 +143,10 @@ public class JwtKeyProvider {
 
   private Optional<String> fetchPublicKeyBody(String endpoint) {
     try (HttpClient client =
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS)).build()) {
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS))
+            .build()) {
       HttpRequest request =
           HttpRequest.newBuilder()
               .uri(URI.create(endpoint))

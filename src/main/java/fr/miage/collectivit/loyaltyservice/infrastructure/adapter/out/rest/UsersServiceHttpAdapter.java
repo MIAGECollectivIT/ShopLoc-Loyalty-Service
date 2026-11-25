@@ -7,6 +7,7 @@ import fr.miage.collectivit.loyaltyservice.security.JwtAuthInterceptor;
 import fr.miage.collectivit.loyaltyservice.security.ServiceTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -20,8 +21,9 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -66,9 +68,14 @@ public class UsersServiceHttpAdapter implements UserVehiclesPort {
     this.serviceTokenProvider = serviceTokenProvider;
   }
 
-  private static SimpleClientHttpRequestFactory createRequestFactory() {
-    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS));
+  @SuppressWarnings("PMD.CloseResource")
+  private static ClientHttpRequestFactory createRequestFactory() {
+    HttpClient httpClient =
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+            .build();
+    JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
     factory.setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS));
     return factory;
   }
