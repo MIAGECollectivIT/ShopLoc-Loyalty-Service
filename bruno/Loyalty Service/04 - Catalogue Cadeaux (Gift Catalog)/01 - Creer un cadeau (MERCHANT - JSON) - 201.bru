@@ -24,7 +24,8 @@ body:json {
     "description": "Mug en céramique blanche avec logo ShopLoc",
     "pointsCost": 80,
     "stock": 25,
-    "imageUrl": "https://cdn.shoploc.fr/gifts/mug.png"
+    "imageUrl": "https://cdn.shoploc.fr/gifts/mug.png",
+    "vfpExclusive": false
   }
 }
 
@@ -34,6 +35,7 @@ assert {
   res.body.pointsCost: eq 80
   res.body.stock: eq 25
   res.body.active: eq true
+  res.body.vfpExclusive: eq false
   res.body.id: isDefined
 }
 

@@ -4,7 +4,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Pure domain projection representing a loyalty gift item enriched with merchant store information
+ * Pure domain projection representing a loyalty gift item enriched with
+ * merchant store information
  * for public catalog consumption (SLE-39 / SLE-223).
  */
 public record CatalogGiftItem(

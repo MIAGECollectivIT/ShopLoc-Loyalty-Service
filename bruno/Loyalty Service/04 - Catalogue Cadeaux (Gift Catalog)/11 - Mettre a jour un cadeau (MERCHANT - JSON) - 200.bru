@@ -23,7 +23,8 @@ body:json {
     "name": "Mug ShopLoc Collector XL",
     "description": "Nouvelle version grande contenance en porcelaine",
     "pointsCost": 90,
-    "imageUrl": "https://cdn.shoploc.fr/gifts/mug-xl.png"
+    "imageUrl": "https://cdn.shoploc.fr/gifts/mug-xl.png",
+    "vfpExclusive": true
   }
 }
 
@@ -32,5 +33,6 @@ assert {
   res.body.id: eq {{giftId}}
   res.body.name: eq "Mug ShopLoc Collector XL"
   res.body.pointsCost: eq 90
+  res.body.vfpExclusive: eq true
 }
 

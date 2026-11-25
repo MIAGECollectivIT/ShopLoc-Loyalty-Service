@@ -293,7 +293,23 @@ sequenceDiagram
 
 ---
 
-## 6. Architectural Benefits
+## 6. Gift Catalog & VFP-Exclusive Gifts (SLE-60 / SLE-39 / SLE-49)
+
+The gift catalog domain follows the same hexagonal isolation:
+
+- **Domain Models (`domain/model/`)**:
+  - `LoyaltyGift`: Pure domain aggregate carrying `uid`, `storeUid`, `name`, `description`, `pointsCost`, `stock`, `imageUrl`, `active`, and `vfpExclusive` (defaults to `false`). Validates mandatory fields, positive `pointsCost`, and non-negative `stock`.
+  - `CatalogGiftItem`: Read-only domain projection enriched with partner store metadata (`storeName`, `category`) and `vfpExclusive` for public catalog queries.
+- **Inbound Ports & Application Service**:
+  - `GiftCreateCommand` / `GiftUpdateCommand` propagate the `vfpExclusive` flag from the web layer into `GiftCatalogService` while keeping backward-compatible constructors (`vfpExclusive = false`).
+  - `GiftCatalogService` enforces BOLA store-ownership checks (`MERCHANT` vs `ADMIN`) and delegates persistence to `GiftPersistencePort`.
+- **Web & Persistence Adapters**:
+  - `GiftCreateRequest`, `GiftUpdateRequest`, and `GiftResponse` expose `vfpExclusive` in the REST/OpenAPI contract (`/v1/loyalty/stores/{storeUid}/gifts` and `/v1/loyalty/gifts`).
+  - `LoyaltyGiftJpaEntity` and `LoyaltyGiftMapper` map `vfpExclusive` to the PostgreSQL `vfp_exclusive` column introduced by Flyway migration `V11__add_vfp_exclusive_to_gift_catalog.sql` (indexed via `idx_loyalty_gifts_vfp_exclusive`).
+
+---
+
+## 7. Architectural Benefits
 
 1. **Fast, Isolated Testing**:
    - Domain business rules (`MerchantLoyaltyRateTest`) execute purely in-memory in under 50 ms without loading Spring or external containers.
