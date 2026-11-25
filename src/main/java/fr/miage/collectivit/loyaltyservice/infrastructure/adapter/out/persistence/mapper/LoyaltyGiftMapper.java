@@ -22,6 +22,7 @@ public class LoyaltyGiftMapper {
         entity.getStock(),
         entity.getImageUrl(),
         entity.isActive(),
+        entity.isVfpExclusive(),
         entity.getCreatedAt(),
         entity.getUpdatedAt());
   }
@@ -40,6 +41,7 @@ public class LoyaltyGiftMapper {
         .stock(domain.getStock())
         .imageUrl(domain.getImageUrl())
         .active(domain.isActive())
+        .vfpExclusive(domain.isVfpExclusive())
         .createdAt(domain.getCreatedAt())
         .updatedAt(domain.getUpdatedAt())
         .build();

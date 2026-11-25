@@ -21,6 +21,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -111,9 +113,12 @@ public class GiftCatalogController {
           boolean includeInactive,
       @Parameter(description = "Numéro de page (0-indexé)", example = "0")
           @RequestParam(required = false, defaultValue = "0")
+          @Min(value = 0, message = "Page index must be >= 0")
           int page,
-      @Parameter(description = "Taille de la page", example = "20")
+      @Parameter(description = "Taille de la page (1 à 100)", example = "20")
           @RequestParam(required = false, defaultValue = "20")
+          @Min(value = 1, message = "Page size must be >= 1")
+          @Max(value = 100, message = "Page size must not exceed 100")
           int size) {
     List<GiftResponse> responses =
         getGiftCatalogQuery.getGiftsByStore(storeUid, includeInactive).stream()

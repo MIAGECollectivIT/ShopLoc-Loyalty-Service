@@ -9,7 +9,7 @@ import java.util.UUID;
  * Pure domain model representing an item in a partner merchant's loyalty gift catalog (Story
  * SLE-60).
  */
-@SuppressWarnings("PMD.NullAssignment")
+@SuppressWarnings({"PMD.NullAssignment", "PMD.ExcessiveParameterList"})
 public class LoyaltyGift {
 
   public static final int MAX_GIFT_STOCK = 1_000_000;
@@ -23,10 +23,10 @@ public class LoyaltyGift {
   private Integer stock;
   private String imageUrl;
   private boolean active;
+  private boolean vfpExclusive;
   private Instant createdAt;
   private Instant updatedAt;
 
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       UUID storeUid,
       String name,
@@ -34,6 +34,17 @@ public class LoyaltyGift {
       Integer pointsCost,
       Integer stock,
       String imageUrl) {
+    this(storeUid, name, description, pointsCost, stock, imageUrl, false);
+  }
+
+  public LoyaltyGift(
+      UUID storeUid,
+      String name,
+      String description,
+      Integer pointsCost,
+      Integer stock,
+      String imageUrl,
+      boolean vfpExclusive) {
     this(
         null,
         UUID.randomUUID(),
@@ -44,11 +55,11 @@ public class LoyaltyGift {
         stock,
         imageUrl,
         true,
+        vfpExclusive,
         Instant.now(),
         Instant.now());
   }
 
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       Long id,
       UUID uid,
@@ -59,6 +70,34 @@ public class LoyaltyGift {
       Integer stock,
       String imageUrl,
       boolean active,
+      Instant createdAt,
+      Instant updatedAt) {
+    this(
+        id,
+        uid,
+        storeUid,
+        name,
+        description,
+        pointsCost,
+        stock,
+        imageUrl,
+        active,
+        false,
+        createdAt,
+        updatedAt);
+  }
+
+  public LoyaltyGift(
+      Long id,
+      UUID uid,
+      UUID storeUid,
+      String name,
+      String description,
+      Integer pointsCost,
+      Integer stock,
+      String imageUrl,
+      boolean active,
+      boolean vfpExclusive,
       Instant createdAt,
       Instant updatedAt) {
     validateStoreUid(storeUid);
@@ -75,12 +114,22 @@ public class LoyaltyGift {
     this.stock = stock != null ? stock : 0;
     this.imageUrl = imageUrl != null && !imageUrl.isBlank() ? imageUrl.trim() : null;
     this.active = active;
+    this.vfpExclusive = vfpExclusive;
     this.createdAt = createdAt != null ? createdAt : Instant.now();
     this.updatedAt = updatedAt != null ? updatedAt : this.createdAt;
   }
 
   public void update(
       String newName, String newDescription, Integer newPointsCost, String newImageUrl) {
+    update(newName, newDescription, newPointsCost, newImageUrl, this.vfpExclusive);
+  }
+
+  public void update(
+      String newName,
+      String newDescription,
+      Integer newPointsCost,
+      String newImageUrl,
+      boolean newVfpExclusive) {
     validateName(newName);
     validatePointsCost(newPointsCost);
 
@@ -88,6 +137,7 @@ public class LoyaltyGift {
     this.description = newDescription != null ? newDescription.trim() : null;
     this.pointsCost = newPointsCost;
     this.imageUrl = newImageUrl != null && !newImageUrl.isBlank() ? newImageUrl.trim() : null;
+    this.vfpExclusive = newVfpExclusive;
     this.updatedAt = Instant.now();
   }
 
@@ -187,6 +237,10 @@ public class LoyaltyGift {
 
   public boolean isActive() {
     return active;
+  }
+
+  public boolean isVfpExclusive() {
+    return vfpExclusive;
   }
 
   public Instant getCreatedAt() {

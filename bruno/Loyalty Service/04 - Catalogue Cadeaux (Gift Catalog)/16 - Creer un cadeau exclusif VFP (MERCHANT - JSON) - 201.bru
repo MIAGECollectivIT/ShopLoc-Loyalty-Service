@@ -1,0 +1,40 @@
+meta {
+  name: 16 - Creer un cadeau exclusif VFP (MERCHANT - JSON) - 201
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/v1/loyalty/stores/{{storeId}}/gifts
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{merchantToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Coffret Dégustation VFP",
+    "description": "Coffret exclusivement réservé aux clients disposant du statut VFP actif",
+    "pointsCost": 150,
+    "stock": 10,
+    "imageUrl": "https://cdn.shoploc.fr/gifts/coffret-vfp.png",
+    "vfpExclusive": true
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.name: eq "Coffret Dégustation VFP"
+  res.body.pointsCost: eq 150
+  res.body.stock: eq 10
+  res.body.active: eq true
+  res.body.vfpExclusive: eq true
+  res.body.uid: isDefined
+}

@@ -82,7 +82,8 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
                       command.description(),
                       command.pointsCost(),
                       command.stock(),
-                      finalImageUrl)));
+                      finalImageUrl,
+                      command.vfpExclusive())));
     } catch (RuntimeException ex) {
       if (uploaded) {
         deleteImageQuietly(finalImageUrl);
@@ -132,7 +133,11 @@ public class GiftCatalogService implements ManageGiftCatalogUseCase, GetGiftCata
                         ? newImageUrl
                         : (command.imageUrl() != null ? command.imageUrl() : gift.getImageUrl());
                 gift.update(
-                    command.name(), command.description(), command.pointsCost(), finalImageUrl);
+                    command.name(),
+                    command.description(),
+                    command.pointsCost(),
+                    finalImageUrl,
+                    command.vfpExclusive());
                 return persistencePort.save(gift);
               });
     } catch (RuntimeException ex) {
