@@ -61,7 +61,10 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
   @SuppressWarnings("PMD.CloseResource")
   private static ClientHttpRequestFactory createClientHttpRequestFactory() {
     HttpClient httpClient =
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS)).build();
+        HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
+            .build();
     JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
     factory.setReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS));
     return factory;
@@ -80,6 +83,11 @@ public class StoreServiceHttpAdapter implements StoreVerificationPort {
   @Override
   public Optional<String> findStoreCategory(UUID storeUid) {
     return fetchStore(storeUid).map(StoreDto::category);
+  }
+
+  @Override
+  public Optional<StoreInfo> findStoreInfo(UUID storeUid) {
+    return fetchStore(storeUid).map(store -> new StoreInfo(store.name(), store.category()));
   }
 
   private Optional<StoreDto> fetchStore(UUID storeUid) {

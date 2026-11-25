@@ -144,53 +144,77 @@ public class PointsAccountService
   }
 
   @Override
-  @Transactional
   public void processPhysicalPayment(PhysicalPaymentCompletedEvent event) {
     if (event == null || !hasText(event.transactionReference())) {
       return;
     }
 
     String txRef = event.transactionReference().trim();
-    if (isTransactionAlreadyProcessed(txRef)) {
-      return;
-    }
+    // Resolve store name via HTTP outside the DB transaction to avoid holding pessimistic locks
+    String storeName = resolveStoreName(event.storeUid());
 
-    MerchantLoyaltyRate rate = resolveStoreRate(event.storeUid());
-    BigDecimal pointsEarned =
-        calculatePoints(event.amount(), rate.getEuroAmount(), rate.getPointsReward());
+    executeInTransaction(
+        () -> {
+          if (isTransactionAlreadyProcessed(txRef)) {
+            return null;
+          }
 
-    String customerId = hasText(event.customerId()) ? event.customerId().trim() : null;
-    String clientCode = hasText(event.clientCode()) ? event.clientCode().trim() : null;
-    Optional<UserPointsAccount> existingAccountOpt = findExistingAccount(customerId, clientCode);
+          MerchantLoyaltyRate rate = resolveStoreRate(event.storeUid());
+          BigDecimal pointsEarned =
+              calculatePoints(event.amount(), rate.getEuroAmount(), rate.getPointsReward());
 
-    Instant now = event.timestamp() != null ? event.timestamp() : Instant.now();
-    UserPointsAccount accountToSave =
-        buildAccountToSave(existingAccountOpt, customerId, clientCode, pointsEarned, now);
+          String customerId = hasText(event.customerId()) ? event.customerId().trim() : null;
+          String clientCode = hasText(event.clientCode()) ? event.clientCode().trim() : null;
+          Optional<UserPointsAccount> existingAccountOpt =
+              findExistingAccount(customerId, clientCode);
 
-    if (userPointsPersistencePort != null) {
-      UserPointsAccount savedAccount = userPointsPersistencePort.saveAccount(accountToSave);
-      recordPointsCredit(savedAccount, event, rate, pointsEarned, accountToSave.balance(), now);
-    }
+          Instant now = event.timestamp() != null ? event.timestamp() : Instant.now();
+          UserPointsAccount accountToSave =
+              buildAccountToSave(existingAccountOpt, customerId, clientCode, pointsEarned, now);
+
+          if (userPointsPersistencePort != null) {
+            UserPointsAccount savedAccount = userPointsPersistencePort.saveAccount(accountToSave);
+            recordPointsCredit(
+                savedAccount, event, rate, pointsEarned, accountToSave.balance(), storeName, now);
+          }
+          return null;
+        });
   }
 
   @Override
-  @Transactional
   public void processOrderPaid(OrderPaidKafkaEvent event) {
     if (event == null || !hasText(event.orderReference())) {
       return;
     }
 
     String orderRef = event.orderReference().trim();
-    if (isTransactionAlreadyProcessed(orderRef)) {
-      return;
-    }
+    String resolvedSingleStoreName = resolveSingleOrderStoreName(event);
 
-    BigDecimal totalPointsEarned = computeOrderPoints(event);
-    if (totalPointsEarned.compareTo(BigDecimal.ZERO) <= 0) {
-      return;
-    }
+    executeInTransaction(
+        () -> {
+          if (isTransactionAlreadyProcessed(orderRef)) {
+            return null;
+          }
 
-    creditOrderPaidPoints(event, totalPointsEarned);
+          BigDecimal totalPointsEarned = computeOrderPoints(event);
+          if (totalPointsEarned.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+          }
+
+          creditOrderPaidPoints(event, totalPointsEarned, resolvedSingleStoreName);
+          return null;
+        });
+  }
+
+  private String resolveSingleOrderStoreName(OrderPaidKafkaEvent event) {
+    if (event.stores() != null && event.stores().size() == 1) {
+      StoreOrderBreakdown singleStore = event.stores().get(0);
+      if (singleStore.storeName() != null) {
+        return singleStore.storeName();
+      }
+      return resolveStoreName(singleStore.storeUid());
+    }
+    return "Multi-commerces";
   }
 
   private BigDecimal computeOrderPoints(OrderPaidKafkaEvent event) {
@@ -203,11 +227,30 @@ public class PointsAccountService
     return BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
   }
 
+  private static final int MIN_BATCH_RATE_QUERY_SIZE = 2;
+
   private BigDecimal computeStoresBreakdownPoints(OrderPaidKafkaEvent event) {
+    java.util.List<UUID> storeUids =
+        event.stores().stream()
+            .filter(s -> s != null && s.storeUid() != null)
+            .map(StoreOrderBreakdown::storeUid)
+            .distinct()
+            .toList();
+
+    java.util.Map<UUID, MerchantLoyaltyRate> batchRates = new java.util.HashMap<>();
+    if (storeUids.size() >= MIN_BATCH_RATE_QUERY_SIZE) {
+      for (MerchantLoyaltyRate r : persistencePort.findByStoreUidIn(storeUids)) {
+        batchRates.put(r.getStoreUid(), r);
+      }
+    }
+
     BigDecimal total = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
     for (StoreOrderBreakdown store : event.stores()) {
       if (store != null && store.storeUid() != null && store.amount() != null) {
-        MerchantLoyaltyRate rate = resolveStoreRate(store.storeUid());
+        MerchantLoyaltyRate rate =
+            batchRates.containsKey(store.storeUid())
+                ? batchRates.get(store.storeUid())
+                : resolveStoreRate(store.storeUid());
         BigDecimal points =
             calculatePoints(store.amount(), rate.getEuroAmount(), rate.getPointsReward());
         total = total.add(points);
@@ -216,7 +259,8 @@ public class PointsAccountService
     return total;
   }
 
-  private void creditOrderPaidPoints(OrderPaidKafkaEvent event, BigDecimal totalPointsEarned) {
+  private void creditOrderPaidPoints(
+      OrderPaidKafkaEvent event, BigDecimal totalPointsEarned, String preResolvedSingleStoreName) {
     String customerId = hasText(event.customerId()) ? event.customerId().trim() : null;
     String clientCode = hasText(event.clientCode()) ? event.clientCode().trim() : null;
     Optional<UserPointsAccount> existingAccountOpt = findExistingAccount(customerId, clientCode);
@@ -228,7 +272,12 @@ public class PointsAccountService
     if (userPointsPersistencePort != null) {
       UserPointsAccount savedAccount = userPointsPersistencePort.saveAccount(accountToSave);
       recordOrderPaidPointsCredit(
-          savedAccount, event, totalPointsEarned, accountToSave.balance(), now);
+          savedAccount,
+          event,
+          totalPointsEarned,
+          accountToSave.balance(),
+          preResolvedSingleStoreName,
+          now);
     }
   }
 
@@ -237,6 +286,7 @@ public class PointsAccountService
       OrderPaidKafkaEvent event,
       BigDecimal pointsEarned,
       BigDecimal newBalance,
+      String preResolvedSingleStoreName,
       Instant now) {
     String orderRef = event.orderReference().trim();
     UUID storeUid = null;
@@ -244,10 +294,7 @@ public class PointsAccountService
     if (event.stores() != null && event.stores().size() == 1) {
       StoreOrderBreakdown singleStore = event.stores().get(0);
       storeUid = singleStore.storeUid();
-      storeName =
-          singleStore.storeName() != null
-              ? singleStore.storeName()
-              : resolveStoreName(singleStore.storeUid());
+      storeName = preResolvedSingleStoreName;
     } else if (event.stores() != null && event.stores().size() > 1) {
       storeName = "Multi-commerces (" + event.stores().size() + ")";
     }
@@ -345,12 +392,12 @@ public class PointsAccountService
       MerchantLoyaltyRate rate,
       BigDecimal pointsEarned,
       BigDecimal newBalance,
+      String storeName,
       Instant now) {
     String txRef = event.transactionReference().trim();
     String rateApplied =
         String.format(
             Locale.ROOT, "%.2f EUR = %.1f PTS", rate.getEuroAmount(), rate.getPointsReward());
-    String storeName = resolveStoreName(event.storeUid());
 
     PointsTransaction transaction =
         new PointsTransaction(

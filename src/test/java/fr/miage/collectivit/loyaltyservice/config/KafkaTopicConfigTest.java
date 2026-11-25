@@ -46,4 +46,40 @@ class KafkaTopicConfigTest {
     assertThat(topic.numPartitions()).isEqualTo(4);
     assertThat(topic.replicationFactor()).isEqualTo((short) 1);
   }
+
+  @Test
+  @DisplayName(
+      "Should create NewTopic bean for order payments DLT with 4 partitions and replica factor 1")
+  void shouldCreateOrderPaymentsDltTopic() {
+    NewTopic topic = config.orderPaymentsDltTopic();
+
+    assertThat(topic).isNotNull();
+    assertThat(topic.name()).isEqualTo(KafkaTopicConfig.ORDER_PAYMENTS_DLT_TOPIC);
+    assertThat(topic.numPartitions()).isEqualTo(4);
+    assertThat(topic.replicationFactor()).isEqualTo((short) 1);
+  }
+
+  @Test
+  @DisplayName(
+      "Should create NewTopic bean for transaction approved with 4 partitions and replica factor 1")
+  void shouldCreateTransactionApprovedTopic() {
+    NewTopic topic = config.transactionApprovedTopic();
+
+    assertThat(topic).isNotNull();
+    assertThat(topic.name()).isEqualTo(KafkaTopicConfig.TRANSACTION_APPROVED_TOPIC);
+    assertThat(topic.numPartitions()).isEqualTo(4);
+    assertThat(topic.replicationFactor()).isEqualTo((short) 1);
+  }
+
+  @Test
+  @DisplayName(
+      "Should create NewTopic bean for transaction approved DLT with 4 partitions and replica factor 1")
+  void shouldCreateTransactionApprovedDltTopic() {
+    NewTopic topic = config.transactionApprovedDltTopic();
+
+    assertThat(topic).isNotNull();
+    assertThat(topic.name()).isEqualTo(KafkaTopicConfig.TRANSACTION_APPROVED_DLT_TOPIC);
+    assertThat(topic.numPartitions()).isEqualTo(4);
+    assertThat(topic.replicationFactor()).isEqualTo((short) 1);
+  }
 }

@@ -2,6 +2,7 @@ package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web;
 
 import fr.miage.collectivit.loyaltyservice.domain.port.in.GetGiftCatalogQuery;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.GiftResponse;
+import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.in.web.dto.PageResponse;
 import fr.miage.collectivit.loyaltyservice.security.PublicEndpoint;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -54,5 +55,36 @@ public class PublicGiftCatalogController {
             .map(GiftResponse::fromCatalogItem)
             .toList();
     return ResponseEntity.ok(responses);
+  }
+
+  @GetMapping("/page")
+  @Operation(
+      summary = "Consulter le catalogue global des cadeaux actifs (paginé)",
+      description =
+          "Retourne la page publique des cadeaux fidélité actifs avec informations commerçant, filtrable par commerce et catégorie.")
+  @ApiResponses(
+      value = {@ApiResponse(responseCode = "200", description = "Page des cadeaux récupérée")})
+  public ResponseEntity<PageResponse<GiftResponse>> getPublicGiftsPage(
+      @Parameter(
+              description = "Identifiant UUID optionnel d'un commerce partenaire",
+              example = "550e8400-e29b-41d4-a716-446655440000")
+          @RequestParam(required = false)
+          UUID storeUid,
+      @Parameter(
+              description = "Catégorie optionnelle de commerce ou cadeau",
+              example = "Restauration")
+          @RequestParam(required = false)
+          String category,
+      @Parameter(description = "Numéro de page (0-indexé)", example = "0")
+          @RequestParam(required = false, defaultValue = "0")
+          int page,
+      @Parameter(description = "Taille de la page", example = "20")
+          @RequestParam(required = false, defaultValue = "20")
+          int size) {
+    List<GiftResponse> responses =
+        getGiftCatalogQuery.getPublicCatalog(storeUid, category).stream()
+            .map(GiftResponse::fromCatalogItem)
+            .toList();
+    return ResponseEntity.ok(PageResponse.of(responses, page, size));
   }
 }

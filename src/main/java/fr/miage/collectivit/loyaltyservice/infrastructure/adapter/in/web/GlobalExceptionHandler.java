@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -31,10 +32,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/** Global exception handler for Loyalty Service web adapters. */
+/**
+ * Global exception handler for Loyalty Service web adapters conforming to RFC 7807 ProblemDetail.
+ */
 @RestControllerAdvice
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.AvoidDuplicateLiterals"})
 public class GlobalExceptionHandler {
+
+  private static final String VALIDATION_FAILED = "Validation Failed";
 
   @ExceptionHandler({
     InvalidLoyaltyRateException.class,
@@ -47,23 +52,26 @@ public class GlobalExceptionHandler {
     MethodArgumentTypeMismatchException.class,
     jakarta.validation.ConstraintViolationException.class
   })
-  public ResponseEntity<Map<String, Object>> handleBadRequestExceptions(Exception ex) {
+  public ResponseEntity<ProblemDetail> handleBadRequestExceptions(Exception ex) {
     return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<Map<String, Object>> handleValidationExceptions(
+  public ResponseEntity<ProblemDetail> handleValidationExceptions(
       MethodArgumentNotValidException ex) {
     Map<String, String> errors = new HashMap<>();
     for (FieldError error : ex.getBindingResult().getFieldErrors()) {
       errors.put(error.getField(), error.getDefaultMessage());
     }
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", HttpStatus.BAD_REQUEST.value());
-    body.put("error", "Validation Failed");
-    body.put("details", errors);
-    return ResponseEntity.badRequest().body(body);
+    ProblemDetail problem =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, VALIDATION_FAILED);
+    problem.setTitle(VALIDATION_FAILED);
+    problem.setProperty("timestamp", Instant.now().toString());
+    problem.setProperty("status", HttpStatus.BAD_REQUEST.value());
+    problem.setProperty("error", VALIDATION_FAILED);
+    problem.setProperty("message", VALIDATION_FAILED);
+    problem.setProperty("details", errors);
+    return ResponseEntity.badRequest().body(problem);
   }
 
   @ExceptionHandler({
@@ -72,7 +80,7 @@ public class GlobalExceptionHandler {
     UserPointsAccessDeniedException.class,
     UserNotVfpException.class
   })
-  public ResponseEntity<Map<String, Object>> handleAccessDeniedExceptions(RuntimeException ex) {
+  public ResponseEntity<ProblemDetail> handleAccessDeniedExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
   }
 
@@ -82,7 +90,7 @@ public class GlobalExceptionHandler {
     TransitGatewayUnavailableException.class,
     UsersServiceUnavailableException.class
   })
-  public ResponseEntity<Map<String, Object>> handleExternalServiceUnavailable(RuntimeException ex) {
+  public ResponseEntity<ProblemDetail> handleExternalServiceUnavailable(RuntimeException ex) {
     return buildResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
   }
 
@@ -90,7 +98,7 @@ public class GlobalExceptionHandler {
     ParkingSessionAlreadyUsedException.class,
     TransitTicketAlreadyUsedException.class
   })
-  public ResponseEntity<Map<String, Object>> handleBenefitConflict(RuntimeException ex) {
+  public ResponseEntity<ProblemDetail> handleBenefitConflict(RuntimeException ex) {
     return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
   }
 
@@ -99,22 +107,24 @@ public class GlobalExceptionHandler {
     MerchantLoyaltyRateNotFoundException.class,
     GiftNotFoundException.class
   })
-  public ResponseEntity<Map<String, Object>> handleNotFoundExceptions(RuntimeException ex) {
+  public ResponseEntity<ProblemDetail> handleNotFoundExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)
-  public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+  public ResponseEntity<ProblemDetail> handleDataIntegrityViolation(
       DataIntegrityViolationException ex) {
     return buildResponse(
         HttpStatus.CONFLICT, "A database conflict occurred while updating loyalty rate for store.");
   }
 
-  private ResponseEntity<Map<String, Object>> buildResponse(HttpStatus status, String message) {
-    Map<String, Object> body = new HashMap<>();
-    body.put("timestamp", Instant.now().toString());
-    body.put("status", status.value());
-    body.put("message", message);
-    return ResponseEntity.status(status).body(body);
+  private ResponseEntity<ProblemDetail> buildResponse(HttpStatus status, String message) {
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, message);
+    problem.setTitle(status.getReasonPhrase());
+    problem.setProperty("timestamp", Instant.now().toString());
+    problem.setProperty("status", status.value());
+    problem.setProperty("error", status.getReasonPhrase());
+    problem.setProperty("message", message);
+    return ResponseEntity.status(status).body(problem);
   }
 }
