@@ -17,7 +17,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Infrastructure JPA entity for persisting records in the PostgreSQL loyalty_gifts table (SLE-60 /
+ * Infrastructure JPA entity for persisting records in the PostgreSQL
+ * loyalty_gifts table (SLE-60 /
  * SLE-191).
  */
 @Entity
