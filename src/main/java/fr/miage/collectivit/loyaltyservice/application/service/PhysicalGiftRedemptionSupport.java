@@ -77,8 +77,7 @@ final class PhysicalGiftRedemptionSupport {
         aggregatedQuantities.entrySet().stream()
             .map(
                 entry -> {
-                  LoyaltyGift gift =
-                      loadActiveGift(storeUid, entry.getKey(), giftPersistencePort);
+                  LoyaltyGift gift = loadActiveGift(storeUid, entry.getKey(), giftPersistencePort);
                   if (gift.isVfpExclusive()) {
                     hasVfpExclusive[0] = true;
                   }

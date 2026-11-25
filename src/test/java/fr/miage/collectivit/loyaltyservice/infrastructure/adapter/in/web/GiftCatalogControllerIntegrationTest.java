@@ -521,11 +521,7 @@ class GiftCatalogControllerIntegrationTest {
 
     GiftUpdateRequest updateRequest =
         new GiftUpdateRequest(
-            "Coffret Standard",
-            "Ouvert à tous",
-            150,
-            "https://cdn.shoploc.fr/std-box.png",
-            false);
+            "Coffret Standard", "Ouvert à tous", 150, "https://cdn.shoploc.fr/std-box.png", false);
 
     mockMvc
         .perform(

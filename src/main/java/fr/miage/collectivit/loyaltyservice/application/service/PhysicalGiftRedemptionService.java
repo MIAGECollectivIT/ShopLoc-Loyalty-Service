@@ -38,7 +38,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Slf4j
 @Service
-@SuppressWarnings("PMD.LawOfDemeter")
+@SuppressWarnings({"PMD.LawOfDemeter", "PMD.ExcessiveImports"})
 public class PhysicalGiftRedemptionService implements RedeemPhysicalGiftsUseCase {
 
   private static final String ROLE_ADMIN = "ADMIN";

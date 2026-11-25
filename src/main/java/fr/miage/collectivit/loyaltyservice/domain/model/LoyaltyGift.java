@@ -9,7 +9,7 @@ import java.util.UUID;
  * Pure domain model representing an item in a partner merchant's loyalty gift catalog (Story
  * SLE-60).
  */
-@SuppressWarnings("PMD.NullAssignment")
+@SuppressWarnings({"PMD.NullAssignment", "PMD.ExcessiveParameterList"})
 public class LoyaltyGift {
 
   public static final int MAX_GIFT_STOCK = 1_000_000;
@@ -27,7 +27,6 @@ public class LoyaltyGift {
   private Instant createdAt;
   private Instant updatedAt;
 
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       UUID storeUid,
       String name,
@@ -38,7 +37,6 @@ public class LoyaltyGift {
     this(storeUid, name, description, pointsCost, stock, imageUrl, false);
   }
 
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       UUID storeUid,
       String name,
@@ -62,7 +60,6 @@ public class LoyaltyGift {
         Instant.now());
   }
 
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       Long id,
       UUID uid,
@@ -90,7 +87,6 @@ public class LoyaltyGift {
         updatedAt);
   }
 
-  @SuppressWarnings("PMD.ExcessiveParameterList")
   public LoyaltyGift(
       Long id,
       UUID uid,

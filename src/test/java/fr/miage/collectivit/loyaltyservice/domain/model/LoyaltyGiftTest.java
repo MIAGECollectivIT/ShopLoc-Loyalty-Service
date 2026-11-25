@@ -168,7 +168,8 @@ class LoyaltyGiftTest {
   }
 
   @Test
-  @DisplayName("Should default vfpExclusive to false and support explicit VFP-exclusive flag and update (SLE-49)")
+  @DisplayName(
+      "Should default vfpExclusive to false and support explicit VFP-exclusive flag and update (SLE-49)")
   void shouldManageVfpExclusiveFlag() {
     LoyaltyGift standardGift = new LoyaltyGift(STORE_UID, "Tote bag", "Description", 50, 10, null);
     assertThat(standardGift.isVfpExclusive()).isFalse();

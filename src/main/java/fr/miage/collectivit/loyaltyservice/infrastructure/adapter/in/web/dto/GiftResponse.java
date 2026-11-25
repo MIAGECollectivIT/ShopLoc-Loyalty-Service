@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /** Response DTO representing a loyalty gift item. */
+@SuppressWarnings("PMD.ExcessiveParameterList")
 public record GiftResponse(
     UUID uid,
     UUID storeUid,

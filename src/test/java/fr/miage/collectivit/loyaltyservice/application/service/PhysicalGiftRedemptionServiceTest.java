@@ -286,7 +286,18 @@ class PhysicalGiftRedemptionServiceTest {
     UUID giftUid = UUID.randomUUID();
     LoyaltyGift vfpGift =
         new LoyaltyGift(
-            1L, giftUid, STORE_UID, "Coffret VFP", null, 50, 5, null, true, true, FIXED_NOW, FIXED_NOW);
+            1L,
+            giftUid,
+            STORE_UID,
+            "Coffret VFP",
+            null,
+            50,
+            5,
+            null,
+            true,
+            true,
+            FIXED_NOW,
+            FIXED_NOW);
     when(loyaltyGiftPersistencePort.findByUidAndStoreUid(giftUid, STORE_UID))
         .thenReturn(Optional.of(vfpGift));
 
@@ -314,7 +325,18 @@ class PhysicalGiftRedemptionServiceTest {
     UUID giftUid = UUID.randomUUID();
     LoyaltyGift vfpGift =
         new LoyaltyGift(
-            1L, giftUid, STORE_UID, "Coffret VFP", null, 50, 5, null, true, true, FIXED_NOW, FIXED_NOW);
+            1L,
+            giftUid,
+            STORE_UID,
+            "Coffret VFP",
+            null,
+            50,
+            5,
+            null,
+            true,
+            true,
+            FIXED_NOW,
+            FIXED_NOW);
     when(loyaltyGiftPersistencePort.findByUidAndStoreUid(giftUid, STORE_UID))
         .thenReturn(Optional.of(vfpGift));
 

@@ -182,7 +182,8 @@ class PublicGiftCatalogControllerIntegrationTest {
   }
 
   @Test
-  @DisplayName("GET /v1/loyalty/gifts -> should expose vfpExclusive flag on public catalog items (SLE-49)")
+  @DisplayName(
+      "GET /v1/loyalty/gifts -> should expose vfpExclusive flag on public catalog items (SLE-49)")
   void shouldExposeVfpExclusiveFlagInPublicCatalog() throws Exception {
     LoyaltyGiftJpaEntity vfpGift =
         buildGift(STORE_UID_10, "Dégustation Privée VFP", "Accès VFP", 250, 4, null, true);
