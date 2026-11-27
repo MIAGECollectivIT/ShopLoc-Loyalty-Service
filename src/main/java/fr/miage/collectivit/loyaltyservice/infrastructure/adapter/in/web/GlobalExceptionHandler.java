@@ -10,6 +10,7 @@ import fr.miage.collectivit.loyaltyservice.domain.exception.InvalidLoyaltyRateEx
 import fr.miage.collectivit.loyaltyservice.domain.exception.MerchantLoyaltyRateNotFoundException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.ParkingGatewayUnavailableException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.ParkingSessionAlreadyUsedException;
+import fr.miage.collectivit.loyaltyservice.domain.exception.PriorPurchaseRequiredException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.SalesServiceUnavailableException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreAccessDeniedException;
 import fr.miage.collectivit.loyaltyservice.domain.exception.StoreNotFoundException;
@@ -81,7 +82,8 @@ public class GlobalExceptionHandler {
     StoreAccessDeniedException.class,
     UserActivityAccessDeniedException.class,
     UserPointsAccessDeniedException.class,
-    UserNotVfpException.class
+    UserNotVfpException.class,
+    PriorPurchaseRequiredException.class
   })
   public ResponseEntity<ProblemDetail> handleAccessDeniedExceptions(RuntimeException ex) {
     return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());

@@ -4,6 +4,8 @@ import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransaction;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserPointsAccount;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Secondary outbound persistence port for loyalty points accounts and transactions (SLE-38 /
@@ -24,6 +26,14 @@ public interface UserPointsPersistencePort {
   List<PointsTransaction> findTransactionsByUserId(String userId);
 
   boolean existsTransactionByReference(String transactionReference);
+
+  default boolean hasPriorPurchaseInStore(String userId, UUID storeUid) {
+    return false;
+  }
+
+  default Set<UUID> findEligibleStoreUidsForUser(String userId) {
+    return Set.of();
+  }
 
   UserPointsAccount saveAccount(UserPointsAccount account);
 
