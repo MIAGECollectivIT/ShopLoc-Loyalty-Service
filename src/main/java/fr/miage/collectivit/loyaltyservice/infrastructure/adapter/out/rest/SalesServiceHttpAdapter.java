@@ -11,7 +11,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +37,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  */
 @Slf4j
 @Component
+@SuppressWarnings("PMD.ExcessiveImports")
 public class SalesServiceHttpAdapter implements SalesTransactionPort {
 
   private static final String BEARER_PREFIX = "Bearer ";
@@ -120,6 +124,68 @@ public class SalesServiceHttpAdapter implements SalesTransactionPort {
       }
       throw new SalesServiceUnavailableException(
           "Unable to query user transactions from Sales Service: " + ex.getMessage(), ex);
+    }
+  }
+
+  @Override
+  public boolean hasCustomerPurchasedInStore(String userId, UUID storeUid) {
+    if (userId == null || userId.isBlank() || storeUid == null) {
+      return false;
+    }
+    try {
+      Optional<String> bearerToken = resolveCurrentBearerToken();
+      Map<?, ?> body =
+          restClient
+              .get()
+              .uri(
+                  "/v1/sales/orders/customers/{userId}/stores/{storeUid}/has-purchase",
+                  userId.trim(),
+                  storeUid)
+              .headers(
+                  headers ->
+                      bearerToken.ifPresent(
+                          token -> headers.set(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token)))
+              .retrieve()
+              .body(Map.class);
+      return body != null && Boolean.TRUE.equals(body.get("hasPurchase"));
+    } catch (RestClientException ex) {
+      if (log.isWarnEnabled()) {
+        log.warn(
+            "Fallback Sales Service check failed for user {} store {}: {}",
+            userId,
+            storeUid,
+            ex.getMessage());
+      }
+      return false;
+    }
+  }
+
+  @Override
+  public Set<UUID> getCustomerPurchasedStoreUids(String userId) {
+    if (userId == null || userId.isBlank()) {
+      return Set.of();
+    }
+    try {
+      Optional<String> bearerToken = resolveCurrentBearerToken();
+      List<UUID> storeUids =
+          restClient
+              .get()
+              .uri("/v1/sales/orders/customers/{userId}/purchased-stores", userId.trim())
+              .headers(
+                  headers ->
+                      bearerToken.ifPresent(
+                          token -> headers.set(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + token)))
+              .retrieve()
+              .body(new ParameterizedTypeReference<List<UUID>>() {});
+      return storeUids != null ? Set.copyOf(storeUids) : Set.of();
+    } catch (RestClientException ex) {
+      if (log.isWarnEnabled()) {
+        log.warn(
+            "Fallback Sales Service purchased stores check failed for user {}: {}",
+            userId,
+            ex.getMessage());
+      }
+      return Set.of();
     }
   }
 

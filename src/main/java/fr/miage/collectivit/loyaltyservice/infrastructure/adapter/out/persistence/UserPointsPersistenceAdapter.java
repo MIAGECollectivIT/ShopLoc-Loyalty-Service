@@ -1,6 +1,7 @@
 package fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence;
 
 import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransaction;
+import fr.miage.collectivit.loyaltyservice.domain.model.PointsTransactionType;
 import fr.miage.collectivit.loyaltyservice.domain.model.UserPointsAccount;
 import fr.miage.collectivit.loyaltyservice.domain.port.out.UserPointsPersistencePort;
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.entity.UserPointsAccountJpaEntity;
@@ -10,6 +11,8 @@ import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistenc
 import fr.miage.collectivit.loyaltyservice.infrastructure.adapter.out.persistence.repository.SpringDataUserPointsTransactionRepository;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +66,26 @@ public class UserPointsPersistenceAdapter implements UserPointsPersistencePort {
   @Transactional(readOnly = true)
   public boolean existsTransactionByReference(String transactionReference) {
     return transactionRepository.existsByTransactionReference(transactionReference);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public boolean hasPriorPurchaseInStore(String userId, UUID storeUid) {
+    if (userId == null || userId.isBlank() || storeUid == null) {
+      return false;
+    }
+    return transactionRepository.existsByUserIdAndStoreUidAndType(
+        userId.trim(), storeUid, PointsTransactionType.EARN);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public Set<UUID> findEligibleStoreUidsForUser(String userId) {
+    if (userId == null || userId.isBlank()) {
+      return Set.of();
+    }
+    return transactionRepository.findDistinctStoreUidsByUserIdAndType(
+        userId.trim(), PointsTransactionType.EARN);
   }
 
   @Override
